@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+dist/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Env
+.env
+
+# Garmin session
+.garth/
+
+# OS
+.DS_Store
+Thumbs.db

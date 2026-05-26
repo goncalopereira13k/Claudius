@@ -1,0 +1,10 @@
+{
+  "name": "claudius",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun --cwd frontend dev",
+    "build": "bun --cwd frontend run build",
+    "install:all": "bun --cwd frontend install"
+  }
+}

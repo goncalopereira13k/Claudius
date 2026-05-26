@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <defs><style>@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&display=swap');</style></defs>
+  <circle cx="250" cy="250" r="230" fill="#14110c"/>
+  <text x="250" y="338" text-anchor="middle"
+        font-family="Cinzel, serif" font-weight="500"
+        font-size="340" fill="#faf8f3">C</text>
+</svg>
