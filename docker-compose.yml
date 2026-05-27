@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: claudius
       POSTGRES_PASSWORD: claudius
@@ -32,9 +32,12 @@ services:
         condition: service_started
     volumes:
       - ./backend:/app
+      - garth_tokens:/tmp/garth_tokens
+      - hf_cache:/root/.cache/huggingface
     environment:
       DATABASE_URL: postgresql+asyncpg://claudius:claudius@postgres:5432/claudius
       REDIS_URL: redis://redis:6379
+      WATCHFILES_FORCE_POLLING: "true"
 
   frontend:
     build: ./frontend
@@ -55,3 +58,5 @@ services:
 
 volumes:
   pgdata:
+  garth_tokens:
+  hf_cache:

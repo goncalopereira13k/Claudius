@@ -56,3 +56,45 @@ export interface PlannedWorkout {
   workout_id: string | null;
   item_type: "workout" | "event";
 }
+
+export interface WorkoutStep {
+  stepOrder: number;
+  stepType: { stepTypeKey: string };
+  durationType: { durationTypeKey: string };
+  durationValue: number | null;
+  targetType: { workoutTargetTypeKey: string };
+  targetValueOne: number | null;
+  targetValueTwo: number | null;
+  zoneNumber: number | null;
+  numberOfIterations: number | null;
+  description: string | null;
+  workoutSteps?: WorkoutStep[];
+}
+
+export interface WorkoutSegment {
+  segmentOrder: number;
+  sportType: { sportTypeKey: string };
+  workoutSteps: WorkoutStep[];
+}
+
+export interface WorkoutDetail {
+  workoutId: number;
+  workoutName: string;
+  sportType: { sportTypeKey: string };
+  estimatedDurationInSecs: number | null;
+  estimatedDistanceInMeters: number | null;
+  workoutSegments: WorkoutSegment[];
+}
+
+export interface Conversation {
+  id: number;
+  title: string;
+  created_at: string;
+}
+
+export interface MessageRecord {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}

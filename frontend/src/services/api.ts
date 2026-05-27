@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Activity, ChatMessage, PlannedWorkout, HealthDay } from "../types";
+import type { Activity, ChatMessage, PlannedWorkout, HealthDay, Conversation, MessageRecord, WorkoutDetail } from "../types";
 
 const api = axios.create({ baseURL: "/api" });
 
@@ -11,10 +11,21 @@ export const activitiesApi = {
 };
 
 export const agentApi = {
-  chat: (message: string, context?: Record<string, unknown>) =>
+  chat: (message: string, conversationId?: number) =>
     api
-      .post<{ reply: string }>("/agent/chat", { message, context })
-      .then((r) => r.data.reply),
+      .post<{ reply: string; conversation_id: number }>("/agent/chat", {
+        message,
+        conversation_id: conversationId,
+      })
+      .then((r) => r.data),
+
+  createConversation: () =>
+    api.post<Conversation>("/agent/conversations").then((r) => r.data),
+
+  getMessages: (conversationId: number) =>
+    api
+      .get<MessageRecord[]>(`/agent/conversations/${conversationId}/messages`)
+      .then((r) => r.data),
 };
 
 export const syncApi = {
@@ -23,6 +34,8 @@ export const syncApi = {
   calendar: (weeksAhead: number) =>
     api.get<{ planned_workouts: PlannedWorkout[] }>("/sync/calendar", { params: { weeks_ahead: weeksAhead } })
       .then((r) => r.data.planned_workouts),
+  workout: (workoutId: string) =>
+    api.get<WorkoutDetail>(`/sync/workout/${workoutId}`).then((r) => r.data),
 };
 
 export const healthApi = {

@@ -7,13 +7,14 @@ import {
 } from "lucide-react";
 import { activitiesApi, syncApi, agentApi } from "../services/api";
 import type { Activity } from "../types";
+import { useTheme, useChartColors } from "../contexts/ThemeContext";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
 function getWeekStart() {
   const now = new Date();
-  const day = now.getDay(); // 0=Sun … 6=Sat
-  const diff = day === 0 ? 6 : day - 1; // days since Monday
+  const day = now.getDay();
+  const diff = day === 0 ? 6 : day - 1;
   const monday = new Date(now);
   monday.setDate(now.getDate() - diff);
   monday.setHours(0, 0, 0, 0);
@@ -90,6 +91,9 @@ function ActivityRow({ a }: { a: Activity }) {
 // ── main ───────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const { isDark } = useTheme();
+  const ch = useChartColors(isDark);
+
   const [activities, setActivities] = useState<Activity[]>([]);
   const [syncing, setSyncing]       = useState(false);
   const [analysis, setAnalysis]     = useState("");
@@ -131,6 +135,17 @@ export default function Dashboard() {
         return { day: label, min };
       });
 
+  const AX  = { fontSize: 9, fill: ch.axis, fontFamily: "Cinzel, serif" };
+  const TIP = {
+    contentStyle: { background: ch.tooltipBg, border: `1px solid ${ch.tooltipBorder}`, fontFamily: "Cinzel, serif", fontSize: 10 },
+    cursor: { fill: ch.cursor },
+  };
+
+  const weeklyGradient = isDark
+    ? "linear-gradient(135deg, #1e1b13 0%, #2a2318 40%, #3a3020 100%)"
+    : "linear-gradient(135deg, #f0ead9 0%, #e8dfc8 40%, #d4c49a 100%)";
+  const weeklyLineColor = isDark ? "#c8a238" : "#8b6914";
+
   async function handleSync() {
     setSyncing(true);
     await syncApi.trigger().catch(() => {});
@@ -149,8 +164,8 @@ export default function Dashboard() {
       .join("\n");
     const reply = await agentApi
       .chat(`Analyse my last ${sessio} training sessions and give a short coaching insight (2–3 sentences):\n${summary}`)
-      .catch(() => "Analysis unavailable.");
-    setAnalysis(reply);
+      .catch(() => ({ reply: "Analysis unavailable.", conversation_id: 0 }));
+    setAnalysis(typeof reply === "string" ? reply : reply.reply);
     setAnalysing(false);
   }
 
@@ -160,12 +175,8 @@ export default function Dashboard() {
       {/* ── Top bar ── */}
       <div className="flex items-end justify-between pb-5 border-b border-stone">
         <div>
-          <p className="text-[8px] font-cinzel tracking-[0.5em] text-ash uppercase mb-1">
-            Gymnasium
-          </p>
-          <h1 className="text-[1.6rem] font-cinzel tracking-[0.08em] text-ink leading-none">
-            Dashboard
-          </h1>
+          <p className="text-[8px] font-cinzel tracking-[0.5em] text-ash uppercase mb-1">Gymnasium</p>
+          <h1 className="text-[1.6rem] font-cinzel tracking-[0.08em] text-ink leading-none">Dashboard</h1>
         </div>
         <button
           onClick={handleSync}
@@ -209,23 +220,15 @@ export default function Dashboard() {
         <div className="bg-tablet border border-stone p-5">
           <div className="flex items-start justify-between mb-1">
             <div>
-              <h2 className="text-[13px] font-cinzel tracking-[0.08em] text-ink">
-                Exercitationes — Duratio
-              </h2>
-              <p className="text-[9px] font-cinzel text-ash/70 tracking-widest mt-0.5">
-                Training intensity per day
-              </p>
+              <h2 className="text-[13px] font-cinzel tracking-[0.08em] text-ink">Exercitationes — Duratio</h2>
+              <p className="text-[9px] font-cinzel text-ash/70 tracking-widest mt-0.5">Training intensity per day</p>
             </div>
             <div className="flex border border-stone text-[8px] font-cinzel tracking-[0.25em] uppercase overflow-hidden">
               {(["week", "month"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
-                  className={`px-3 py-1 transition-colors ${
-                    period === p
-                      ? "bg-gold/20 text-bronze"
-                      : "text-ash hover:text-ink"
-                  }`}
+                  className={`px-3 py-1 transition-colors ${period === p ? "bg-gold/20 text-bronze" : "text-ash hover:text-ink"}`}
                 >
                   {p === "week" ? "VII Dies" : "XXX Dies"}
                 </button>
@@ -235,14 +238,10 @@ export default function Dashboard() {
           <div className="mt-4">
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={chartData} barCategoryGap="35%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#d4c9a830" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#7a6f5a", fontFamily: "Cinzel, serif" }} axisLine={false} tickLine={false} interval={period === "month" ? 4 : 0} />
-                <YAxis tick={{ fontSize: 9, fill: "#7a6f5a" }} axisLine={false} tickLine={false} width={28} />
-                <Tooltip
-                  contentStyle={{ background: "#f0ead9", border: "1px solid #d4c9a8", fontFamily: "Cinzel, serif", fontSize: 10 }}
-                  cursor={{ fill: "#d4c9a820" }}
-                  formatter={(v: number) => [`${v} min`, "Duration"]}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke={ch.grid} vertical={false} />
+                <XAxis dataKey="day" tick={AX} axisLine={false} tickLine={false} interval={period === "month" ? 4 : 0} />
+                <YAxis tick={AX} axisLine={false} tickLine={false} width={28} />
+                <Tooltip {...TIP} formatter={(v: number) => [`${v} min`, "Duration"]} />
                 <Bar dataKey="min" fill="#c9a84c" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -260,9 +259,7 @@ export default function Dashboard() {
               <ActivityRow key={a.id} a={a} />
             ))}
             {activities.length === 0 && (
-              <p className="text-[10px] font-cinzel text-ash/60 italic">
-                Nulla exercitatio — synchronise.
-              </p>
+              <p className="text-[10px] font-cinzel text-ash/60 italic">Nulla exercitatio — synchronise.</p>
             )}
           </div>
           <a
@@ -280,15 +277,14 @@ export default function Dashboard() {
         {/* Weekly insight card */}
         <div
           className="border border-stone p-6 flex flex-col justify-end min-h-[200px] relative overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #f0ead9 0%, #e8dfc8 40%, #d4c49a 100%)" }}
+          style={{ background: weeklyGradient }}
         >
-          <div className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: "repeating-linear-gradient(0deg, #8b6914 0px, transparent 1px, transparent 24px)" }}
+          <div
+            className="absolute inset-0 opacity-10"
+            style={{ backgroundImage: `repeating-linear-gradient(0deg, ${weeklyLineColor} 0px, transparent 1px, transparent 24px)` }}
           />
           <div className="relative">
-            <p className="text-[8px] font-cinzel tracking-[0.5em] text-bronze uppercase mb-2">
-              Weekly Insight
-            </p>
+            <p className="text-[8px] font-cinzel tracking-[0.5em] text-bronze uppercase mb-2">Weekly Insight</p>
             <h2 className="text-2xl font-cinzel text-ink tracking-[0.05em] leading-tight">
               Vigor et<br />Disciplina
             </h2>
@@ -302,9 +298,7 @@ export default function Dashboard() {
             Mensa Analytica
           </h2>
           {analysis ? (
-            <p className="text-[10px] font-cinzel text-ash leading-relaxed flex-1">
-              {analysis}
-            </p>
+            <p className="text-[10px] font-cinzel text-ash leading-relaxed flex-1">{analysis}</p>
           ) : (
             <p className="text-[10px] font-cinzel text-ash/60 italic flex-1">
               {recent.length

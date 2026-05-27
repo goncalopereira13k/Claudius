@@ -3,7 +3,81 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light mode base ─────────────────────────────────────────────────────── */
 body {
   background-color: #faf8f3;
   color: #14110c;
 }
+
+/* ── Dark palette tokens ─────────────────────────────────────────────────── */
+.dark {
+  --dk-parchment: #1c1810;
+  --dk-tablet:    #13110d;
+  --dk-ink:       #e8e0cc;
+  --dk-ash:       #998870;
+  --dk-stone:     #3e3628;
+  --dk-gold:      #d4ac4c;
+  --dk-bronze:    #c8a238;
+
+  --dk-stone-rgb: 62 54 40;
+  --dk-ash-rgb:   153 136 112;
+  --dk-gold-rgb:  212 172 76;
+  --dk-ink-rgb:   232 224 204;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+.dark body {
+  background-color: var(--dk-parchment);
+  color: var(--dk-ink);
+}
+
+/* ── Background ──────────────────────────────────────────────────────────── */
+.dark .bg-parchment          { background-color: var(--dk-parchment); }
+.dark .bg-tablet             { background-color: var(--dk-tablet); }
+.dark .bg-ink                { background-color: var(--dk-ink); }
+.dark .bg-stone              { background-color: var(--dk-stone); }
+.dark .bg-gold               { background-color: var(--dk-gold); }
+.dark .bg-bronze             { background-color: var(--dk-bronze); }
+
+.dark .bg-parchment\/30      { background-color: rgb(28 24 16 / 0.3); }
+.dark .bg-stone\/10          { background-color: rgb(var(--dk-stone-rgb) / 0.10); }
+.dark .bg-stone\/20          { background-color: rgb(var(--dk-stone-rgb) / 0.20); }
+.dark .bg-stone\/30          { background-color: rgb(var(--dk-stone-rgb) / 0.30); }
+.dark .bg-stone\/40          { background-color: rgb(var(--dk-stone-rgb) / 0.40); }
+.dark .bg-stone\/50          { background-color: rgb(var(--dk-stone-rgb) / 0.50); }
+.dark .bg-stone\/60          { background-color: rgb(var(--dk-stone-rgb) / 0.60); }
+.dark .bg-gold\/10           { background-color: rgb(var(--dk-gold-rgb) / 0.10); }
+.dark .bg-gold\/20           { background-color: rgb(var(--dk-gold-rgb) / 0.20); }
+
+/* ── Text ────────────────────────────────────────────────────────────────── */
+.dark .text-ink              { color: var(--dk-ink); }
+.dark .text-ash              { color: var(--dk-ash); }
+.dark .text-stone            { color: var(--dk-stone); }
+.dark .text-bronze           { color: var(--dk-bronze); }
+.dark .text-gold             { color: var(--dk-gold); }
+.dark .text-parchment        { color: var(--dk-parchment); }
+
+.dark .text-ash\/40          { color: rgb(var(--dk-ash-rgb) / 0.40); }
+.dark .text-ash\/50          { color: rgb(var(--dk-ash-rgb) / 0.50); }
+.dark .text-ash\/60          { color: rgb(var(--dk-ash-rgb) / 0.60); }
+.dark .text-ash\/70          { color: rgb(var(--dk-ash-rgb) / 0.70); }
+.dark .text-ink\/60          { color: rgb(var(--dk-ink-rgb) / 0.60); }
+
+/* ── Border ──────────────────────────────────────────────────────────────── */
+.dark .border-stone          { border-color: var(--dk-stone); }
+.dark .border-ink            { border-color: var(--dk-ink); }
+.dark .border-gold           { border-color: var(--dk-gold); }
+.dark .border-stone\/30      { border-color: rgb(var(--dk-stone-rgb) / 0.30); }
+.dark .border-stone\/40      { border-color: rgb(var(--dk-stone-rgb) / 0.40); }
+.dark .border-stone\/50      { border-color: rgb(var(--dk-stone-rgb) / 0.50); }
+.dark .border-stone\/60      { border-color: rgb(var(--dk-stone-rgb) / 0.60); }
+.dark .border-l-2.border-gold { border-color: var(--dk-gold); }
+
+/* ── Hover states ────────────────────────────────────────────────────────── */
+.dark .hover\:bg-stone\/30:hover  { background-color: rgb(var(--dk-stone-rgb) / 0.30); }
+.dark .hover\:bg-stone\/20:hover  { background-color: rgb(var(--dk-stone-rgb) / 0.20); }
+.dark .hover\:bg-ink:hover        { background-color: var(--dk-ink); }
+.dark .hover\:text-ink:hover      { color: var(--dk-ink); }
+.dark .hover\:border-ink:hover    { border-color: var(--dk-ink); }
+.dark .hover\:bg-bronze:hover     { background-color: var(--dk-bronze); }
+.dark .hover\:opacity-80:hover    { opacity: 0.8; }

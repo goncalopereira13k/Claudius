@@ -21,19 +21,25 @@ Coaching style:
 """
 
 
-async def chat(user_message: str, context: str | None = None) -> str:
+async def chat(
+    user_message: str,
+    history: list[dict] | None = None,
+    context: str | None = None,
+) -> str:
     messages = []
 
+    # Inject training context as a synthetic user/assistant pair at the start of the
+    # messages array. This satisfies the Anthropic API's alternating-turn requirement
+    # and ensures Claudius always has the athlete's data regardless of conversation length.
     if context:
-        messages.append({
-            "role": "user",
-            "content": f"Context about my recent training:\n{context}\n\nQuestion: {user_message}",
-        })
-    else:
-        messages.append({"role": "user", "content": user_message})
+        messages.append({"role": "user", "content": f"[Training context for this session]\n{context}"})
+        messages.append({"role": "assistant", "content": "Understood. I have your training data. Ask me anything."})
+
+    messages.extend(history or [])
+    messages.append({"role": "user", "content": user_message})
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=1024,
         system=SYSTEM_PROMPT,
         messages=messages,

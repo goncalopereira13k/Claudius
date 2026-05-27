@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { activitiesApi, healthApi } from "../services/api";
 import type { Activity, HealthDay } from "../types";
+import { useTheme, useChartColors } from "../contexts/ThemeContext";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -23,8 +24,7 @@ const SPORT_LABELS: Record<string, string> = {
   bike: "Cycling", swim: "Swim", gym: "Gym", other: "Other",
 };
 
-const TIP = { contentStyle: { background: "#faf8f3", border: "1px solid #d4c9a8", fontFamily: "Cinzel, serif", fontSize: 11 }, cursor: { fill: "#d4c9a818" } };
-const AX  = { fontSize: 9, fill: "#7a6f5a", fontFamily: "Cinzel, serif" };
+// TIP and AX are built inside the component (theme-aware)
 
 // ── Period ────────────────────────────────────────────────────────────────────
 type Period = "4W" | "3M" | "6M" | "1Y" | "All";
@@ -163,6 +163,14 @@ function NoData() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Analytics() {
+  const { isDark } = useTheme();
+  const ch = useChartColors(isDark);
+  const TIP = {
+    contentStyle: { background: ch.tooltipBg, border: `1px solid ${ch.tooltipBorder}`, fontFamily: "Cinzel, serif", fontSize: 11 },
+    cursor: { fill: ch.cursor },
+  };
+  const AX = { fontSize: 9, fill: ch.axis, fontFamily: "Cinzel, serif" };
+
   const [activities, setActivities] = useState<Activity[]>([]);
   const [health, setHealth]         = useState<HealthDay[]>([]);
   const [period, setPeriod]         = useState<Period>("3M");
@@ -341,11 +349,11 @@ export default function Analytics() {
         {pmc.length > 1 ? (
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={pmc}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#d4c9a830" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={ch.grid} vertical={false} />
               <XAxis dataKey="label" tick={AX} axisLine={false} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={AX} axisLine={false} tickLine={false} width={32} />
               <Tooltip {...TIP} />
-              <ReferenceLine y={0} stroke="#d4c9a860" strokeDasharray="3 3" />
+              <ReferenceLine y={0} stroke={ch.tooltipBorder} strokeDasharray="3 3" />
               <Line type="monotone" dataKey="CTL" stroke={C.ctl} dot={false} strokeWidth={2} name="CTL (Fitness)" />
               <Line type="monotone" dataKey="ATL" stroke={C.atl} dot={false} strokeWidth={2} name="ATL (Fatiga)" />
               <Line type="monotone" dataKey="TSB" stroke={C.tsb} dot={false} strokeWidth={1.5} strokeDasharray="5 3" name="TSB (Forma)" />
@@ -361,7 +369,7 @@ export default function Analytics() {
         {volData[volTab].length > 0 ? (
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={volData[volTab]} barCategoryGap="35%">
-              <CartesianGrid strokeDasharray="3 3" stroke="#d4c9a830" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={ch.grid} vertical={false} />
               <XAxis dataKey="label" tick={AX} axisLine={false} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={AX} axisLine={false} tickLine={false} width={38} unit={` ${volUnit[volTab]}`} />
               <Tooltip {...TIP} formatter={(v: number) => [`${v} ${volUnit[volTab]}`, volTab]} />
@@ -382,7 +390,7 @@ export default function Analytics() {
         {hlthChart.some(h => h[hlthKey[hlthTab] as keyof typeof h] != null) ? (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={hlthChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#d4c9a830" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={ch.grid} vertical={false} />
               <XAxis dataKey="label" tick={AX} axisLine={false} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={AX} axisLine={false} tickLine={false} width={38} unit={hlthUnit[hlthTab] ? ` ${hlthUnit[hlthTab]}` : undefined} />
               <Tooltip {...TIP} formatter={(v: number) => [`${v}${hlthUnit[hlthTab] ? " " + hlthUnit[hlthTab] : ""}`, hlthTab]} />
@@ -521,7 +529,7 @@ export default function Analytics() {
                 data={sportMap}
                 barCategoryGap="25%"
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#d4c9a830" horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={ch.grid} horizontal={false} />
                 <XAxis
                   type="number"
                   tick={AX}

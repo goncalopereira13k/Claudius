@@ -1,8 +1,13 @@
-import traceback
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+import logging
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_db
 from app.services.garmin import sync_garmin, get_planned_workouts, invalidate_planned_cache
 from app.services.garmin_health import sync_garmin_health
 from app.services.strava import sync_strava
+
+log = logging.getLogger("claudius")
 
 router = APIRouter()
 
@@ -11,9 +16,22 @@ async def _warm_planned_cache() -> None:
     """Pre-warm the planned workouts cache after a sync so the next calendar load is instant."""
     try:
         invalidate_planned_cache()
-        await get_planned_workouts(weeks_ahead=8)
+        await get_planned_workouts(weeks_ahead=8, weeks_back=4)
     except Exception:
         pass  # best-effort; calendar will fetch on demand if this fails
+
+
+async def _refresh_ml_context() -> None:
+    """Re-run pattern detection and suggestion followthrough check after a sync."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.pattern_service import detect_patterns
+        from app.services.feedback_service import check_suggestion_followthrough
+        async with AsyncSessionLocal() as db:
+            await detect_patterns(db)
+            await check_suggestion_followthrough(db)
+    except Exception as e:
+        log.warning("Post-sync ML refresh failed: %s", e)
 
 
 @router.post("/trigger")
@@ -25,6 +43,7 @@ async def trigger_sync(background_tasks: BackgroundTasks, garmin: bool = True, s
         background_tasks.add_task(sync_garmin_health)
     if strava:
         background_tasks.add_task(sync_strava)
+    background_tasks.add_task(_refresh_ml_context)
     return {"status": "sync_queued"}
 
 
@@ -33,9 +52,11 @@ async def get_calendar(weeks_ahead: int = 2):
     """Planned workouts from Garmin calendar (synced from TrainingPeaks coach plan)."""
     try:
         planned = await get_planned_workouts(weeks_ahead=weeks_ahead)
+        log.info("Calendar returned %d planned workouts", len(planned))
         return {"planned_workouts": planned}
     except Exception as e:
-        raise HTTPException(status_code=500, detail={"error": type(e).__name__, "message": str(e), "trace": traceback.format_exc()})
+        log.error("Calendar fetch failed: %s", e, exc_info=True)
+        return {"planned_workouts": []}
 
 
 @router.post("/strava-now")
@@ -55,42 +76,22 @@ async def strava_now():
     return {"status": resp.status_code, "count": len(resp.json()) if resp.status_code == 200 else 0, "sample": resp.json()[:1] if resp.status_code == 200 else resp.text}
 
 
-@router.get("/garmin-raw")
-async def garmin_raw():
-    """Return raw Garmin API response for the latest activity — use to inspect available fields."""
-    from app.services.garmin import _login
-    _login()
-    import garth
-    raw = garth.connectapi(
-        "/activitylist-service/activities/search/activities",
-        params={"limit": 1, "start": 0},
-    ) or []
-    return raw[0] if raw else {}
-
-
-@router.get("/calendar-raw")
-async def calendar_raw():
-    """Return raw Garmin calendar API response for the current month — use to inspect item types and field names."""
-    import asyncio, traceback as tb
-    from app.services.garmin import _login
-    from datetime import date, timedelta
-    import garth
-
-    def _fetch():
-        _login()
-        today = date.today()
-        y, m = today.year, today.month
-        data = garth.connectapi(f"/calendar-service/year/{y}/month/{m}") or {}
-        items = data.get("calendarItems", [])
-        return {
-            "total": len(items),
-            "types": list({i.get("itemType") for i in items}),
-            "sample": items[:10],
-        }
-
-    return await asyncio.to_thread(_fetch)
+@router.get("/workout/{workout_id}")
+async def get_workout(workout_id: str):
+    """Full structured workout detail (steps, targets, zones) for a planned workout."""
+    try:
+        from app.services.garmin import get_workout_detail
+        return await get_workout_detail(workout_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"error": type(e).__name__, "message": str(e)})
 
 
 @router.get("/status")
-async def sync_status():
-    return {"last_sync": None, "status": "unknown"}
+async def sync_status(db: AsyncSession = Depends(get_db)):
+    from app.models.activity import Activity
+    result = await db.execute(select(func.max(Activity.start_date)))
+    last = result.scalar()
+    return {
+        "last_sync": last.isoformat() if last else None,
+        "status": "synced" if last else "never_synced",
+    }

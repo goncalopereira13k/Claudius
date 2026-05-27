@@ -1,7 +1,19 @@
 import { Outlet, NavLink } from "react-router-dom";
+import { Sun, Moon, Monitor } from "lucide-react";
 import { routes } from "../routes";
+import { useTheme } from "../contexts/ThemeContext";
+
+type ThemeMode = "light" | "system" | "dark";
+
+const MODES: { key: ThemeMode; Icon: typeof Sun; label: string }[] = [
+  { key: "light",  Icon: Sun,     label: "Light"  },
+  { key: "system", Icon: Monitor, label: "System" },
+  { key: "dark",   Icon: Moon,    label: "Night"  },
+];
 
 export default function Layout() {
+  const { theme, setTheme } = useTheme();
+
   return (
     <div className="min-h-screen bg-parchment text-ink flex">
 
@@ -23,7 +35,7 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex flex-col gap-0.5 px-3 flex-1">
-          {routes.map(({ path, label, sublabel, icon: Icon, index }) => (
+          {routes.map(({ path, label, icon: Icon, index }) => (
             <NavLink
               key={path}
               to={path}
@@ -67,6 +79,24 @@ export default function Layout() {
         <main className="flex-1 px-10 py-10 w-full">
           <Outlet />
         </main>
+      </div>
+
+      {/* ── Theme toggle (fixed top-right) ── */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-px bg-tablet border border-stone/60 shadow-sm">
+        {MODES.map(({ key, Icon, label }) => (
+          <button
+            key={key}
+            onClick={() => setTheme(key)}
+            title={label}
+            className={`flex items-center justify-center w-7 h-7 transition-colors ${
+              theme === key
+                ? "bg-gold/20 text-bronze"
+                : "text-ash hover:text-ink hover:bg-stone/20"
+            }`}
+          >
+            <Icon size={11} strokeWidth={1.5} />
+          </button>
+        ))}
       </div>
 
     </div>
