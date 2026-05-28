@@ -12,7 +12,8 @@ from app.models.activity import Base
 from app.models import health as _health_models  # noqa: F401 — registers DailyHealth in Base.metadata
 from app.models import conversation as _conversation_models  # noqa: F401 — registers Conversation + Message in Base.metadata
 from app.models import memory as _memory_models  # noqa: F401 — registers UserMemory, TrainingPattern, CoachingSuggestion
-from app.api.routes import auth, activities, agent, sync, health, memory
+from app.models import calendar_entry as _calendar_entry_models  # noqa: F401 — registers UserCalendarEntry
+from app.api.routes import auth, activities, agent, sync, health, memory, calendar_entries
 
 _NEW_ACTIVITY_COLS = [
     ("norm_power",     "FLOAT"),
@@ -108,7 +109,8 @@ app.include_router(activities.router, prefix="/api/activities", tags=["activitie
 app.include_router(agent.router,      prefix="/api/agent",      tags=["agent"])
 app.include_router(sync.router,       prefix="/api/sync",       tags=["sync"])
 app.include_router(health.router,     prefix="/api/health",     tags=["health"])
-app.include_router(memory.router,     prefix="/api/memory",     tags=["memory"])
+app.include_router(memory.router,          prefix="/api/memory",    tags=["memory"])
+app.include_router(calendar_entries.router, prefix="/api/calendar",  tags=["calendar"])
 
 
 @app.get("/health")

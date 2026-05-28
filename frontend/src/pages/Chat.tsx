@@ -158,7 +158,7 @@ export default function Chat() {
 
       <div className="flex gap-3 border-t-2 border-stone pt-4 shrink-0">
         <input
-          className="flex-1 bg-parchment border border-stone px-4 py-3 text-sm font-cinzel tracking-wide text-ink placeholder-ash/50 focus:outline-none focus:border-ink transition-colors"
+          className="flex-1 bg-parchment border border-stone px-4 py-3 text-sm text-ink placeholder-ash/50 focus:outline-none focus:border-ink transition-colors"
           placeholder="Scribe hic..."
           value={input}
           onChange={(e) => setInput(e.target.value)}

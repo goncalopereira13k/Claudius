@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, X, CheckCircle2,
-  Bike, Waves, Dumbbell, Activity as Run, Zap, Footprints, Trophy,
+  Bike, Waves, Dumbbell, Activity as Run, Zap, Footprints, Trophy, Sparkles,
 } from "lucide-react";
-import { activitiesApi, syncApi } from "../services/api";
-import type { Activity, PlannedWorkout, WorkoutDetail, WorkoutStep } from "../types";
+import { activitiesApi, syncApi, calendarEntriesApi } from "../services/api";
+import type { Activity, PlannedWorkout, WorkoutDetail, WorkoutStep, UserCalendarEntry } from "../types";
 
 // ── Sport system ────────────────────────────────────────────────────────────
 
@@ -49,9 +49,11 @@ function sportIcon(key: SportKey) {
 // ── Session types ───────────────────────────────────────────────────────────
 
 type DaySession =
-  | { kind: "done";    sport: SportKey; activity: Activity }
-  | { kind: "planned"; sport: SportKey; workout: PlannedWorkout }
-  | { kind: "matched"; sport: SportKey; activity: Activity; workout: PlannedWorkout };
+  | { kind: "done";       sport: SportKey; activity: Activity }
+  | { kind: "planned";    sport: SportKey; workout: PlannedWorkout }
+  | { kind: "matched";    sport: SportKey; activity: Activity; workout: PlannedWorkout }
+  | { kind: "ai_entry";   sport: SportKey; entry: UserCalendarEntry }
+  | { kind: "ai_matched"; sport: SportKey; activity: Activity; entry: UserCalendarEntry };
 
 function nameScore(actName: string, planTitle: string): number {
   const a = actName.toLowerCase().trim();
@@ -62,9 +64,10 @@ function nameScore(actName: string, planTitle: string): number {
   return 0;
 }
 
-function buildSessions(acts: Activity[], plans: PlannedWorkout[]): DaySession[] {
-  const usedA = new Set<number>();
-  const usedP = new Set<number>();
+function buildSessions(acts: Activity[], plans: PlannedWorkout[], aiEntries: UserCalendarEntry[] = []): DaySession[] {
+  const usedA  = new Set<number>();
+  const usedP  = new Set<number>();
+  const usedAi = new Set<number>();
   const sessions: DaySession[] = [];
 
   // Pass 1: match by name similarity — prefer the activity whose name matches the plan title
@@ -96,10 +99,27 @@ function buildSessions(acts: Activity[], plans: PlannedWorkout[]): DaySession[] 
     }
   });
 
+  // Pass 3: match remaining activities to AI-added entries by sport
+  aiEntries.forEach((entry, ei) => {
+    const entrySport = getSport(entry.sport_type ?? "other");
+    const ai = acts.findIndex((a, i) => !usedA.has(i) && getSport(a.sport_type) === entrySport);
+    if (ai >= 0) {
+      usedA.add(ai);
+      usedAi.add(ei);
+      sessions.push({ kind: "ai_matched", sport: entrySport, activity: acts[ai], entry });
+    }
+  });
+
   // Remaining unmatched planned + events
   plans.forEach((p, pi) => {
     if (usedP.has(pi)) return;
     sessions.push({ kind: "planned", sport: p.item_type === "event" ? "race" : getSport(p.sport), workout: p });
+  });
+
+  // Remaining unmatched AI entries
+  aiEntries.forEach((entry, ei) => {
+    if (usedAi.has(ei)) return;
+    sessions.push({ kind: "ai_entry", sport: getSport(entry.sport_type ?? "other"), entry });
   });
 
   // Distances of already-matched sessions — used to suppress near-duplicate unmatched done activities
@@ -109,7 +129,6 @@ function buildSessions(acts: Activity[], plans: PlannedWorkout[]): DaySession[] 
 
   acts.forEach((a, ai) => {
     if (usedA.has(ai)) return;
-    // Suppress if a matched session already accounts for the same distance (duplicate recording)
     if (
       a.distance_meters > 100 &&
       matchedDists.some(d => d > 100 && Math.abs(d - a.distance_meters) / Math.max(d, a.distance_meters) < 0.05)
@@ -145,6 +164,41 @@ function fmtKm(m: number) {
 function SessionChip({ session, onClick }: { session: DaySession; onClick: () => void }) {
   const s = SPORT[session.sport];
   const Icon = sportIcon(session.sport);
+
+  // AI-matched chip (scheduled by Claudius + completed)
+  if (session.kind === "ai_matched") {
+    const metric = fmtKm(session.activity.distance_meters);
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className="w-full flex items-center gap-1.5 px-2 py-1 rounded-sm text-left transition-opacity hover:opacity-80
+          bg-gold border border-bronze"
+      >
+        <Sparkles size={11} className="text-parchment flex-shrink-0" strokeWidth={1.5} />
+        <span className="text-[10px] font-cinzel truncate leading-tight flex-1 text-parchment">
+          {session.activity.name || session.entry.title}
+        </span>
+        {metric && <span className="text-[9px] font-cinzel flex-shrink-0 opacity-80 text-parchment">{metric}</span>}
+        <CheckCircle2 size={9} className="text-parchment flex-shrink-0" />
+      </button>
+    );
+  }
+
+  // AI-added entry chip
+  if (session.kind === "ai_entry") {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className="w-full flex items-center gap-1.5 px-2 py-1 rounded-sm text-left transition-opacity hover:opacity-80
+          bg-gold/10 border border-dashed border-gold"
+      >
+        <Sparkles size={11} className="text-bronze flex-shrink-0" strokeWidth={1.5} />
+        <span className="text-[10px] font-cinzel truncate leading-tight flex-1 text-bronze">
+          {session.entry.title}
+        </span>
+      </button>
+    );
+  }
 
   let title: string;
   let metric: string | null = null;
@@ -238,32 +292,37 @@ function fmtStepTarget(step: WorkoutStep): string {
   return "";
 }
 
-const STEP_STYLE: Record<string, string> = {
-  warmup:   "text-sky-700 dark:text-sky-300 bg-transparent border border-sky-300 dark:border-sky-800",
-  cooldown: "text-sky-700 dark:text-sky-300 bg-transparent border border-sky-300 dark:border-sky-800",
-  interval: "text-amber-800 dark:text-amber-300 bg-transparent border border-amber-400 dark:border-amber-700",
-  rest:     "text-stone-500 dark:text-stone-400 bg-transparent border border-stone-300 dark:border-stone-600",
-  recovery: "text-stone-500 dark:text-stone-400 bg-transparent border border-stone-300 dark:border-stone-600",
-  repeat:   "text-violet-700 dark:text-violet-300 bg-transparent border border-violet-300 dark:border-violet-700",
+// ── Step bar colors ──────────────────────────────────────────────────────────
+
+const STEP_BAR: Record<string, string> = {
+  warmup:   "bg-sky-400",
+  cooldown: "bg-sky-400",
+  interval: "bg-amber-500",
+  rest:     "bg-stone-400",
+  recovery: "bg-stone-400",
+  repeat:   "bg-violet-400",
 };
 
 function StepRow({ step, depth = 0 }: { step: WorkoutStep; depth?: number }) {
   const key      = step.stepType?.stepTypeKey ?? "interval";
-  const style    = STEP_STYLE[key] ?? STEP_STYLE.interval;
+  const bar      = STEP_BAR[key] ?? STEP_BAR.interval;
   const dur      = fmtStepDuration(step);
   const target   = fmtStepTarget(step);
   const isRepeat = key === "repeat";
 
   return (
-    <div style={{ marginLeft: depth * 12 }}>
-      <div className={`flex items-center gap-2 px-2 py-1 rounded-sm border text-[9px] font-cinzel ${style}`}>
-        <span className="tracking-[0.25em] uppercase w-16 shrink-0 opacity-70">{key}</span>
-        {dur    && <span className="font-semibold">{dur}</span>}
-        {isRepeat && step.numberOfIterations && <span className="opacity-70">×{step.numberOfIterations}</span>}
-        {target && <span className="opacity-60 ml-auto">{target}</span>}
+    <div style={{ paddingLeft: depth * 16 }}>
+      <div className="flex items-center gap-3 py-1.5">
+        <div className={`w-0.5 h-4 rounded-full flex-shrink-0 ${bar}`} />
+        <span className="text-[8px] font-cinzel tracking-[0.25em] uppercase text-ash w-16 shrink-0">{key}</span>
+        {dur && <span className="text-[10px] font-cinzel text-ink">{dur}</span>}
+        {isRepeat && step.numberOfIterations && (
+          <span className="text-[9px] font-cinzel text-ash/80">×{step.numberOfIterations}</span>
+        )}
+        {target && <span className="text-[9px] font-cinzel text-ash/80 ml-auto">{target}</span>}
       </div>
       {step.description && (
-        <p className="text-[8px] font-cinzel text-ash/50 pl-2 mt-0.5">{step.description}</p>
+        <p className="text-[8px] font-cinzel text-ash/70 pl-4 pb-0.5 italic">{step.description}</p>
       )}
       {step.workoutSteps?.map((sub, i) => (
         <StepRow key={i} step={sub} depth={depth + 1} />
@@ -278,33 +337,25 @@ function WorkoutSteps({ detail }: { detail: WorkoutDetail }) {
   const estDur   = detail.estimatedDurationInSecs;
 
   return (
-    <div className="space-y-3">
+    <div>
       {segments.map((seg, si) => (
-        <div key={si} className="space-y-1">
+        <div key={si}>
           {segments.length > 1 && (
-            <p className="text-[8px] font-cinzel tracking-[0.3em] text-ash uppercase">
+            <p className="text-[7px] font-cinzel tracking-[0.3em] text-ash/70 uppercase mb-1">
               Segment {seg.segmentOrder} · {seg.sportType?.sportTypeKey ?? ""}
             </p>
           )}
-          {seg.workoutSteps.map((step, i) => (
-            <StepRow key={i} step={step} />
-          ))}
+          <div className="divide-y divide-stone/20">
+            {seg.workoutSteps.map((step, i) => (
+              <StepRow key={i} step={step} />
+            ))}
+          </div>
         </div>
       ))}
       {(estDist || estDur) && (
-        <div className="flex gap-4 pt-2 border-t border-stone/30">
-          {estDist && (
-            <div>
-              <p className="text-[7px] font-cinzel tracking-[0.2em] text-ash/50 uppercase">Est. Distance</p>
-              <p className="text-[10px] font-cinzel text-ink">{(estDist / 1000).toFixed(1)} km</p>
-            </div>
-          )}
-          {estDur && (
-            <div>
-              <p className="text-[7px] font-cinzel tracking-[0.2em] text-ash/50 uppercase">Est. Duration</p>
-              <p className="text-[10px] font-cinzel text-ink">{fmtDuration(estDur)}</p>
-            </div>
-          )}
+        <div className="flex gap-6 mt-4 pt-4 border-t border-stone/30">
+          {estDist && <StatTile label="Est. Distance" value={`${(estDist / 1000).toFixed(1)} km`} />}
+          {estDur  && <StatTile label="Est. Duration" value={fmtDuration(estDur)} />}
         </div>
       )}
     </div>
@@ -313,153 +364,203 @@ function WorkoutSteps({ detail }: { detail: WorkoutDetail }) {
 
 // ── Modal ───────────────────────────────────────────────────────────────────
 
-function Modal({ session, date, onClose }: { session: DaySession; date: string; onClose: () => void }) {
-  const s = SPORT[session.sport];
-  const Icon = sportIcon(session.sport);
-  const d = new Date(date + "T12:00:00");
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-tablet px-3 py-2 min-w-[72px]">
+      <p className="text-[7px] font-cinzel tracking-[0.3em] uppercase text-ash/70 mb-0.5">{label}</p>
+      <p className="text-sm font-cinzel text-ink leading-none">{value}</p>
+    </div>
+  );
+}
 
-  const activity = session.kind !== "planned" ? session.activity : null;
-  const workout  = session.kind !== "done"    ? session.workout  : null;
+function ActivityStats({ activity }: { activity: Activity }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <StatTile label="Duration" value={fmtDuration(activity.duration_seconds)} />
+      {activity.distance_meters > 0 && <StatTile label="Distance" value={fmtKm(activity.distance_meters)!} />}
+      {activity.avg_hr   && <StatTile label="Avg HR"   value={`${activity.avg_hr} bpm`} />}
+      {activity.avg_power && <StatTile label="Power"   value={`${activity.avg_power} W`} />}
+      {activity.tss != null && <StatTile label="TSS"   value={activity.tss.toFixed(0)} />}
+    </div>
+  );
+}
+
+function Modal({ session, date, onClose, onDeleteAiEntry }: {
+  session: DaySession;
+  date: string;
+  onClose: () => void;
+  onDeleteAiEntry?: (id: number) => void;
+}) {
+  const s    = SPORT[session.sport];
+  const Icon = sportIcon(session.sport);
+  const d    = new Date(date + "T12:00:00");
+
+  const activity = (session.kind === "done" || session.kind === "matched" || session.kind === "ai_matched") ? session.activity : null;
+  const workout  = (session.kind === "matched" || session.kind === "planned") ? session.workout : null;
+  const aiEntry  = (session.kind === "ai_entry" || session.kind === "ai_matched") ? session.entry : null;
+  const isAi     = session.kind === "ai_entry" || session.kind === "ai_matched";
 
   const [workoutDetail, setWorkoutDetail] = useState<WorkoutDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [deleting, setDeleting]           = useState(false);
 
   useEffect(() => {
     const wid = workout?.workout_id;
     if (!wid) return;
     setLoadingDetail(true);
-    syncApi.workout(wid)
-      .then(setWorkoutDetail)
-      .catch(() => {})
-      .finally(() => setLoadingDetail(false));
+    syncApi.workout(wid).then(setWorkoutDetail).catch(() => {}).finally(() => setLoadingDetail(false));
   }, [workout?.workout_id]);
+
+  async function handleDeleteAiEntry() {
+    if (session.kind !== "ai_entry") return;
+    setDeleting(true);
+    try {
+      await calendarEntriesApi.delete(session.entry.id);
+      onDeleteAiEntry?.(session.entry.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const statusLabel =
+    session.kind === "ai_entry"    ? "Claudius · Scheduled" :
+    session.kind === "ai_matched"  ? "Claudius · Completed" :
+    session.kind === "matched"     ? `${s.label} · Completed` :
+    session.kind === "planned"     ? `${s.label} · Planned` :
+                                     s.label;
+
+  const title =
+    isAi
+      ? (activity?.name || aiEntry?.title || session.sport)
+      : (activity?.name || workout?.title || session.sport);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.6)" }}
+      style={{ background: "rgba(0,0,0,0.5)" }}
       onClick={onClose}
     >
       <div
-        className="bg-parchment border border-stone w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl"
+        className="bg-parchment w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl"
+        style={{ border: "1px solid #d4c9a8" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal header */}
-        <div className={`px-6 py-4 border-b border-stone ${s.modalBg}`}>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 flex items-center justify-center rounded-sm ${s.dot} bg-opacity-20`}>
-                <Icon size={16} className={s.icon} strokeWidth={1.5} />
+        {/* Header */}
+        <div className="px-6 pt-6 pb-5 border-b border-stone/40">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Sport icon pill */}
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isAi ? "bg-bronze" : s.dot}`}>
+                {isAi
+                  ? <Sparkles size={14} className="text-parchment" strokeWidth={2} />
+                  : <Icon size={14} className="text-white" strokeWidth={2} />
+                }
               </div>
-              <div>
-                <p className={`text-[8px] font-cinzel tracking-[0.35em] uppercase ${s.text} opacity-70`}>
-                  {s.label || session.sport}
-                  {session.kind === "matched" && " · Completed"}
-                  {session.kind === "planned" && " · Planned"}
+              <div className="min-w-0">
+                <p className="text-[8px] font-cinzel tracking-[0.4em] uppercase text-ash/60 mb-1">
+                  {statusLabel}
                 </p>
-                <p className="font-cinzel text-ink text-sm leading-tight mt-0.5">
-                  {activity?.name || workout?.title || session.sport}
+                <p className="font-cinzel text-ink text-base leading-tight truncate">{title}</p>
+                <p className="text-[9px] font-cinzel text-ash/50 mt-1.5">
+                  {d.toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="text-ash hover:text-ink transition-colors mt-0.5">
+            <button onClick={onClose} className="text-ash/50 hover:text-ink transition-colors flex-shrink-0 mt-0.5">
               <X size={14} strokeWidth={1.5} />
             </button>
           </div>
-          <p className="text-[9px] font-cinzel text-ash mt-2">
-            {d.toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </p>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        {/* Body */}
+        <div className="px-6 py-5 space-y-6">
 
-          {/* Matched: planned vs actual side by side */}
+          {/* Done — stats only */}
+          {session.kind === "done" && <ActivityStats activity={activity!} />}
+
+          {/* Matched — plan description + actual stats */}
           {session.kind === "matched" && (
-            <div className="grid grid-cols-2 gap-4">
-              {/* Planned */}
-              <div className="space-y-1">
-                <p className="text-[8px] font-cinzel tracking-[0.3em] text-ash uppercase border-b border-stone/40 pb-1 mb-2">
-                  Planned
-                </p>
-                <p className="text-[10px] font-cinzel text-ash">{workout!.title}</p>
-                {workout!.sport && <p className="text-[9px] font-cinzel text-ash/60">{workout!.sport}</p>}
-                {workout!.description && (
-                  <p className="text-[9px] font-cinzel text-ash/60 leading-relaxed">{workout!.description}</p>
-                )}
-              </div>
-
-              {/* Actual */}
-              <div className="space-y-1">
-                <p className="text-[8px] font-cinzel tracking-[0.3em] text-ash uppercase border-b border-stone/40 pb-1 mb-2">
-                  Actual
-                </p>
-                <StatRow label="Duration" value={fmtDuration(activity!.duration_seconds)} />
-                {activity!.distance_meters > 0 && (
-                  <StatRow label="Distance" value={fmtKm(activity!.distance_meters)!} />
-                )}
-                {activity!.avg_hr && <StatRow label="Avg HR" value={`${activity!.avg_hr} bpm`} />}
-                {activity!.avg_power && <StatRow label="Power" value={`${activity!.avg_power} W`} />}
-                {activity!.tss != null && <StatRow label="TSS" value={activity!.tss.toFixed(0)} />}
-              </div>
-            </div>
-          )}
-
-          {/* Done only */}
-          {session.kind === "done" && (
-            <div className="grid grid-cols-2 gap-3">
-              <StatRow label="Duration"  value={fmtDuration(activity!.duration_seconds)} />
-              {activity!.distance_meters > 0 && (
-                <StatRow label="Distance" value={fmtKm(activity!.distance_meters)!} />
-              )}
-              {activity!.avg_hr   && <StatRow label="Avg HR"  value={`${activity!.avg_hr} bpm`} />}
-              {activity!.avg_power && <StatRow label="Power"  value={`${activity!.avg_power} W`} />}
-              {activity!.tss != null && <StatRow label="TSS"  value={activity!.tss.toFixed(0)} />}
-            </div>
-          )}
-
-          {/* Planned only */}
-          {session.kind === "planned" && (
-            <div className="space-y-3">
+            <>
               {workout!.description && (
-                <p className="text-[9px] font-cinzel text-ash leading-relaxed">{workout!.description}</p>
+                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{workout!.description}</p>
               )}
+              <div>
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-2">Actual</p>
+                <ActivityStats activity={activity!} />
+              </div>
+            </>
+          )}
 
+          {/* Planned — description + steps */}
+          {session.kind === "planned" && (
+            <>
+              {workout!.description && (
+                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{workout!.description}</p>
+              )}
               {loadingDetail && (
-                <p className="text-[8px] font-cinzel text-ash/50 animate-pulse tracking-widest">Loading steps...</p>
+                <p className="text-[8px] font-cinzel text-ash/40 animate-pulse tracking-widest">Loading steps...</p>
               )}
-
               {workoutDetail && workoutDetail.workoutSegments?.length > 0 && (
                 <div>
-                  <p className="text-[8px] font-cinzel tracking-[0.3em] text-ash uppercase border-b border-stone/40 pb-1 mb-2">
-                    Workout Steps
-                  </p>
+                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Workout Steps</p>
                   <WorkoutSteps detail={workoutDetail} />
                 </div>
               )}
-
               {!loadingDetail && !workoutDetail && (
-                <p className="text-[9px] font-cinzel text-ash/50 italic">Not yet completed.</p>
+                <p className="text-[9px] font-cinzel text-ash/40 italic">Not yet completed.</p>
               )}
-            </div>
+            </>
           )}
 
-          {/* Source badge */}
+          {/* AI entry — time/duration/notes + delete */}
+          {session.kind === "ai_entry" && (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {aiEntry!.time_of_day && <StatTile label="Time" value={aiEntry!.time_of_day} />}
+                {aiEntry!.duration_minutes && <StatTile label="Duration" value={`${aiEntry!.duration_minutes} min`} />}
+              </div>
+              {aiEntry!.description && (
+                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{aiEntry!.description}</p>
+              )}
+              <button
+                onClick={handleDeleteAiEntry}
+                disabled={deleting}
+                className="text-[8px] font-cinzel tracking-[0.25em] uppercase text-ash/40 hover:text-ink disabled:opacity-30 transition-colors"
+              >
+                {deleting ? "Removing..." : "Remove from calendar"}
+              </button>
+            </>
+          )}
+
+          {/* AI matched — scheduled info + actual stats */}
+          {session.kind === "ai_matched" && (
+            <>
+              <div>
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-2">Scheduled</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {aiEntry!.time_of_day && <StatTile label="Time" value={aiEntry!.time_of_day} />}
+                  {aiEntry!.duration_minutes && <StatTile label="Planned" value={`${aiEntry!.duration_minutes} min`} />}
+                </div>
+                {aiEntry!.description && (
+                  <p className="text-[9px] font-cinzel text-ash/60 leading-relaxed">{aiEntry!.description}</p>
+                )}
+              </div>
+              <div>
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-2">Actual</p>
+                <ActivityStats activity={activity!} />
+              </div>
+            </>
+          )}
+
+          {/* Footer: data source */}
           {activity && (
-            <p className="text-[7px] font-cinzel tracking-[0.3em] text-ash/40 uppercase border-t border-stone/30 pt-3">
-              {activity.source}
+            <p className="text-[7px] font-cinzel tracking-[0.3em] text-ash/30 uppercase pt-2 border-t border-stone/20">
+              {isAi ? `Claudius · ${activity.source}` : activity.source}
             </p>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[8px] font-cinzel tracking-[0.2em] text-ash/60 uppercase">{label}</p>
-      <p className="text-[11px] font-cinzel text-ink">{value}</p>
     </div>
   );
 }
@@ -469,12 +570,14 @@ function StatRow({ label, value }: { label: string; value: string }) {
 export default function Calendar() {
   const today = new Date();
   const [current, setCurrent] = useState({ year: today.getFullYear(), month: today.getMonth() });
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [planned, setPlanned]       = useState<PlannedWorkout[]>([]);
-  const [modal, setModal]           = useState<{ session: DaySession; date: string } | null>(null);
+  const [activities, setActivities]   = useState<Activity[]>([]);
+  const [planned, setPlanned]         = useState<PlannedWorkout[]>([]);
+  const [aiEntries, setAiEntries]     = useState<UserCalendarEntry[]>([]);
+  const [modal, setModal]             = useState<{ session: DaySession; date: string } | null>(null);
 
   useEffect(() => {
     activitiesApi.list().then(setActivities).catch(() => {});
+    calendarEntriesApi.list().then(setAiEntries).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -512,6 +615,15 @@ export default function Calendar() {
     }
     return map;
   }, [planned]);
+
+  const aiEntriesByDay = useMemo(() => {
+    const map = new Map<string, UserCalendarEntry[]>();
+    for (const e of aiEntries) {
+      if (!map.has(e.date)) map.set(e.date, []);
+      map.get(e.date)!.push(e);
+    }
+    return map;
+  }, [aiEntries]);
 
   const firstDow   = new Date(year, month, 1).getDay();
   const startOffset = (firstDow + 6) % 7;
@@ -603,7 +715,8 @@ export default function Calendar() {
               const isFuture = key > todayKey;
               const acts     = byDay.get(key) ?? [];
               const plans    = plannedByDay.get(key) ?? [];
-              const sessions = buildSessions(acts, plans);
+              const aiDay    = aiEntriesByDay.get(key) ?? [];
+              const sessions = buildSessions(acts, plans, aiDay);
 
               return (
                 <div
@@ -641,7 +754,12 @@ export default function Calendar() {
 
       {/* Modal */}
       {modal && (
-        <Modal session={modal.session} date={modal.date} onClose={() => setModal(null)} />
+        <Modal
+          session={modal.session}
+          date={modal.date}
+          onClose={() => setModal(null)}
+          onDeleteAiEntry={(id) => setAiEntries((prev) => prev.filter((e) => e.id !== id))}
+        />
       )}
     </>
   );

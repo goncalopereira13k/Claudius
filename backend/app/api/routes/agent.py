@@ -4,13 +4,55 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.agents.claude_agent import chat
+from app.agents.claude_agent import chat_with_tools
 from app.agents.context import build_training_context
 from app.core.database import get_db, AsyncSessionLocal
 from app.models.conversation import Conversation, Message
+from app.models.calendar_entry import UserCalendarEntry
 
 log = logging.getLogger("claudius")
 router = APIRouter()
+
+ADD_CALENDAR_ENTRY_TOOL = {
+    "name": "add_calendar_entry",
+    "description": (
+        "Add a planned workout or event to the Claudius internal calendar. "
+        "Use this when the athlete asks to schedule or add something to the calendar. "
+        "This does NOT sync to Garmin, TrainingPeaks, or Google Calendar."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "Name of the workout or event (e.g. 'Knee Strength Work')",
+            },
+            "date": {
+                "type": "string",
+                "description": "Date in YYYY-MM-DD format",
+            },
+            "time_of_day": {
+                "type": "string",
+                "description": "Time in HH:MM 24h format, optional (e.g. '19:00')",
+            },
+            "duration_minutes": {
+                "type": "integer",
+                "description": "Duration in minutes, optional (e.g. 20)",
+            },
+            "sport_type": {
+                "type": "string",
+                "description": "Type: run, bike, swim, gym, or other",
+            },
+            "description": {
+                "type": "string",
+                "description": "Workout details or notes, optional",
+            },
+        },
+        "required": ["title", "date"],
+    },
+}
+
+TOOLS = [ADD_CALENDAR_ENTRY_TOOL]
 
 
 class ChatRequest(BaseModel):
@@ -113,10 +155,35 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     prior_msgs = result.scalars().all()
     history = [{"role": m.role, "content": m.content} for m in prior_msgs]
 
-    # Build training + memory + pattern context only on the first message of a conversation
+    # Build training + memory + pattern context only on the first message
     context = await build_training_context(db) if not prior_msgs else None
 
-    reply = await chat(req.message, history=history, context=context)
+    # Tool executor — has access to the request-scoped DB session
+    async def tool_executor(tool_name: str, inputs: dict) -> str:
+        if tool_name == "add_calendar_entry":
+            entry = UserCalendarEntry(
+                title=inputs["title"],
+                date=inputs["date"],
+                time_of_day=inputs.get("time_of_day"),
+                duration_minutes=inputs.get("duration_minutes"),
+                sport_type=inputs.get("sport_type", "other"),
+                description=inputs.get("description"),
+                created_by="ai",
+            )
+            db.add(entry)
+            await db.flush()
+            time_str = f" at {inputs['time_of_day']}" if inputs.get("time_of_day") else ""
+            dur_str = f" ({inputs['duration_minutes']} min)" if inputs.get("duration_minutes") else ""
+            return f"Added to Claudius calendar: '{inputs['title']}' on {inputs['date']}{time_str}{dur_str}."
+        return f"Unknown tool: {tool_name}"
+
+    reply = await chat_with_tools(
+        req.message,
+        tools=TOOLS,
+        tool_executor=tool_executor,
+        history=history,
+        context=context,
+    )
 
     db.add(Message(conversation_id=conv.id, role="assistant", content=reply))
 

@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Activity, ChatMessage, PlannedWorkout, HealthDay, Conversation, MessageRecord, WorkoutDetail } from "../types";
+import type { Activity, ChatMessage, PlannedWorkout, HealthDay, Conversation, MessageRecord, WorkoutDetail, UserCalendarEntry } from "../types";
 
 const api = axios.create({ baseURL: "/api" });
 
@@ -41,6 +41,11 @@ export const syncApi = {
 export const healthApi = {
   list: (days = 365) =>
     api.get<HealthDay[]>(`/health/?limit=${days}`).then((r) => r.data),
+};
+
+export const calendarEntriesApi = {
+  list: () => api.get<UserCalendarEntry[]>("/calendar/entries").then((r) => r.data),
+  delete: (id: number) => api.delete(`/calendar/entries/${id}`).then((r) => r.data),
 };
 
 export { ChatMessage };

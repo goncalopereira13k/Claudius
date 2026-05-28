@@ -86,6 +86,18 @@ export interface WorkoutDetail {
   workoutSegments: WorkoutSegment[];
 }
 
+export interface UserCalendarEntry {
+  id: number;
+  title: string;
+  date: string;
+  time_of_day: string | null;
+  duration_minutes: number | null;
+  sport_type: string | null;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+}
+
 export interface Conversation {
   id: number;
   title: string;
