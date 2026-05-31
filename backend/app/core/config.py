@@ -22,10 +22,6 @@ class Settings(BaseSettings):
     STRAVA_DEV_ACCESS_TOKEN: str = ""
     STRAVA_DEV_REFRESH_TOKEN: str = ""
 
-    # TrainingPeaks
-    TRAININGPEAKS_CLIENT_ID: str = ""
-    TRAININGPEAKS_CLIENT_SECRET: str = ""
-
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://claudius:claudius@localhost:5432/claudius"
     REDIS_URL: str = "redis://localhost:6379"

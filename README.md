@@ -6,7 +6,7 @@ A personal AI training coach that aggregates your endurance data from Garmin and
 
 ## What it does
 
-- **Syncs** your Garmin activities and your TrainingPeaks coach plan (via Garmin calendar)
+- **Syncs** your Garmin activities and planned workouts from the Garmin calendar
 - **Connects** to Strava via OAuth to pull additional training data
 - **Coaches** you through a Claude-powered chat — direct, data-driven, no fluff
 - **Calendar** shows planned workouts vs completed sessions with a Plan vs Actual comparison table
@@ -126,7 +126,7 @@ Each activity is embedded with `sentence-transformers` and stored in PostgreSQL 
 ## Roadmap
 
 - [x] Garmin activity sync
-- [x] TrainingPeaks coach plan via Garmin calendar
+- [x] Planned workouts via Garmin calendar
 - [x] Strava OAuth integration
 - [x] Claude AI coach (chat + tool use)
 - [x] ML memory with pgvector embeddings

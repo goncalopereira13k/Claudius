@@ -1,7 +1,7 @@
 export interface Activity {
   id: number;
   external_id: string;
-  source: "garmin" | "strava" | "trainingpeaks";
+  source: "garmin" | "strava";
   name: string;
   sport_type: string;
   start_date: string;

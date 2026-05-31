@@ -49,7 +49,7 @@ async def trigger_sync(background_tasks: BackgroundTasks, garmin: bool = True, s
 
 @router.get("/calendar")
 async def get_calendar(weeks_ahead: int = 2, weeks_back: int = 0):
-    """Planned workouts from Garmin calendar (synced from TrainingPeaks coach plan)."""
+    """Planned workouts from Garmin calendar."""
     try:
         planned = await get_planned_workouts(weeks_ahead=weeks_ahead, weeks_back=weeks_back)
         log.info("Calendar returned %d planned workouts", len(planned))

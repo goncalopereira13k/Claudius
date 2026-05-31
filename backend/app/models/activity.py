@@ -10,7 +10,6 @@ class Base(DeclarativeBase):
 class Source(str, enum.Enum):
     garmin = "garmin"
     strava = "strava"
-    trainingpeaks = "trainingpeaks"
 
 
 class Activity(Base):

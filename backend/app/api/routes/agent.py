@@ -18,7 +18,7 @@ ADD_CALENDAR_ENTRY_TOOL = {
     "description": (
         "Add a planned workout or event to the Claudius internal calendar. "
         "Use this when the athlete asks to schedule or add something to the calendar. "
-        "This does NOT sync to Garmin, TrainingPeaks, or Google Calendar."
+        "This does NOT sync to Garmin or Google Calendar."
     ),
     "input_schema": {
         "type": "object",
