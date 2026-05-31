@@ -2,15 +2,15 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: claudius
-      POSTGRES_PASSWORD: claudius
-      POSTGRES_DB: claudius
+      POSTGRES_USER: ${DB_USER:-claudius}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-claudius}
+      POSTGRES_DB: ${DB_NAME:-claudius}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U claudius"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-claudius}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -35,7 +35,7 @@ services:
       - garth_tokens:/tmp/garth_tokens
       - hf_cache:/root/.cache/huggingface
     environment:
-      DATABASE_URL: postgresql+asyncpg://claudius:claudius@postgres:5432/claudius
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-claudius}:${DB_PASSWORD:-claudius}@postgres:5432/${DB_NAME:-claudius}
       REDIS_URL: redis://redis:6379
       WATCHFILES_FORCE_POLLING: "true"
 
