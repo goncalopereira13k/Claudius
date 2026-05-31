@@ -31,8 +31,8 @@ export const agentApi = {
 export const syncApi = {
   trigger: () => api.post("/sync/trigger").then((r) => r.data),
   status: () => api.get("/sync/status").then((r) => r.data),
-  calendar: (weeksAhead: number) =>
-    api.get<{ planned_workouts: PlannedWorkout[] }>("/sync/calendar", { params: { weeks_ahead: weeksAhead } })
+  calendar: (weeksAhead: number, weeksBack = 0) =>
+    api.get<{ planned_workouts: PlannedWorkout[] }>("/sync/calendar", { params: { weeks_ahead: weeksAhead, weeks_back: weeksBack } })
       .then((r) => r.data.planned_workouts),
   workout: (workoutId: string) =>
     api.get<WorkoutDetail>(`/sync/workout/${workoutId}`).then((r) => r.data),

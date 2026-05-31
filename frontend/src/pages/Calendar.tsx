@@ -362,6 +362,94 @@ function WorkoutSteps({ detail }: { detail: WorkoutDetail }) {
   );
 }
 
+// ── Plan vs Actual comparison ────────────────────────────────────────────────
+
+interface CompRow {
+  label: string;
+  planned: string | null;
+  actual: string | null;
+  delta: string | null;
+  deltaOk?: boolean;
+}
+
+function fmtDeltaSecs(secs: number): string {
+  const abs = Math.abs(secs);
+  const sign = secs >= 0 ? "+" : "−";
+  if (abs < 60) return `${sign}${abs}s`;
+  const m = Math.round(abs / 60);
+  return `${sign}${m} min`;
+}
+
+function buildCompRows(detail: WorkoutDetail | null, activity: Activity, sport: SportKey): CompRow[] {
+  const rows: CompRow[] = [];
+  const plannedDur  = detail?.estimatedDurationInSecs   ?? null;
+  const plannedDist = detail?.estimatedDistanceInMeters ?? null;
+  const actualDur   = activity.duration_seconds;
+  const actualDist  = activity.distance_meters;
+
+  rows.push({
+    label:   "Duration",
+    planned: plannedDur  != null ? fmtDuration(plannedDur) : null,
+    actual:  fmtDuration(actualDur),
+    delta:   plannedDur  != null ? fmtDeltaSecs(actualDur - plannedDur) : null,
+    deltaOk: plannedDur  != null ? Math.abs(actualDur - plannedDur) / plannedDur < 0.1 : undefined,
+  });
+
+  if (plannedDist || actualDist > 0) {
+    const delta   = plannedDist && actualDist > 0 ? actualDist - plannedDist : null;
+    const deltaPct = delta != null && plannedDist ? delta / plannedDist : null;
+    rows.push({
+      label:   "Distance",
+      planned: plannedDist ? fmtKm(plannedDist) : null,
+      actual:  actualDist  > 0 ? fmtKm(actualDist)! : null,
+      delta:   delta != null ? `${delta >= 0 ? "+" : "−"}${Math.abs(delta / 1000).toFixed(1)} km` : null,
+      deltaOk: deltaPct != null ? Math.abs(deltaPct) < 0.1 : undefined,
+    });
+  }
+
+  if ((sport === "run" || sport === "trail" || sport === "walk") && actualDist > 0) {
+    const paceSecKm = actualDur / (actualDist / 1000);
+    rows.push({ label: "Avg Pace",  planned: null, actual: `${fmtPaceFromSecPerKm(paceSecKm)} /km`, delta: null });
+  }
+  if (sport === "bike" && activity.avg_speed) {
+    rows.push({ label: "Avg Speed", planned: null, actual: `${(activity.avg_speed * 3.6).toFixed(1)} km/h`, delta: null });
+  }
+  if (activity.avg_hr)           rows.push({ label: "Avg HR",  planned: null, actual: `${activity.avg_hr} bpm`, delta: null });
+  if (activity.avg_power)        rows.push({ label: "Power",   planned: null, actual: `${activity.avg_power} W`,  delta: null });
+  if (activity.tss != null)      rows.push({ label: "TSS",     planned: null, actual: activity.tss.toFixed(0),    delta: null });
+  if (activity.elevation_gain)   rows.push({ label: "Elevation",planned: null, actual: `${Math.round(activity.elevation_gain)} m`,  delta: null });
+
+  return rows;
+}
+
+function PlanVsActual({ rows }: { rows: CompRow[] }) {
+  return (
+    <div>
+      <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-x-3 text-[7px] font-cinzel tracking-[0.3em] uppercase text-ash/40 mb-1.5 pb-1.5 border-b border-stone/30">
+        <span>Metric</span>
+        <span className="text-right">Planned</span>
+        <span className="text-right">Actual</span>
+        <span className="text-right">Delta</span>
+      </div>
+      {rows.map((r, i) => (
+        <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-x-3 py-1.5 border-b border-stone/10 last:border-0 items-center">
+          <span className="text-[8px] font-cinzel text-ash/70 tracking-wide">{r.label}</span>
+          <span className="text-[9px] font-cinzel text-ash/50 text-right">{r.planned ?? "—"}</span>
+          <span className="text-[10px] font-cinzel text-ink text-right">{r.actual ?? "—"}</span>
+          <span className={`text-[9px] font-cinzel text-right ${
+            r.delta == null          ? "text-ash/20" :
+            r.deltaOk === true       ? "text-emerald-600 dark:text-emerald-400" :
+            r.deltaOk === false      ? "text-amber-500" :
+            "text-ash/50"
+          }`}>
+            {r.delta ?? "—"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Modal ───────────────────────────────────────────────────────────────────
 
 function StatTile({ label, value }: { label: string; value: string }) {
@@ -385,11 +473,12 @@ function ActivityStats({ activity }: { activity: Activity }) {
   );
 }
 
-function Modal({ session, date, onClose, onDeleteAiEntry }: {
+function Modal({ session, date, onClose, onDeleteAiEntry, allPlans }: {
   session: DaySession;
   date: string;
   onClose: () => void;
   onDeleteAiEntry?: (id: number) => void;
+  allPlans: PlannedWorkout[];
 }) {
   const s    = SPORT[session.sport];
   const Icon = sportIcon(session.sport);
@@ -400,16 +489,29 @@ function Modal({ session, date, onClose, onDeleteAiEntry }: {
   const aiEntry  = (session.kind === "ai_entry" || session.kind === "ai_matched") ? session.entry : null;
   const isAi     = session.kind === "ai_entry" || session.kind === "ai_matched";
 
+  // For "done" sessions, search all loaded plans for a cross-date match
+  const matchedPlan = useMemo(() => {
+    if (session.kind !== "done") return null;
+    const actSport = session.sport;
+    for (const p of allPlans) {
+      if (getSport(p.sport) !== actSport || p.item_type === "event") continue;
+      if (nameScore(session.activity.name, p.title) >= 1) return p;
+    }
+    return null;
+  }, [session, allPlans]);
+
+  const effectiveWorkout = workout ?? matchedPlan;
+
   const [workoutDetail, setWorkoutDetail] = useState<WorkoutDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [deleting, setDeleting]           = useState(false);
 
   useEffect(() => {
-    const wid = workout?.workout_id;
+    const wid = effectiveWorkout?.workout_id;
     if (!wid) return;
     setLoadingDetail(true);
     syncApi.workout(wid).then(setWorkoutDetail).catch(() => {}).finally(() => setLoadingDetail(false));
-  }, [workout?.workout_id]);
+  }, [effectiveWorkout?.workout_id]);
 
   async function handleDeleteAiEntry() {
     if (session.kind !== "ai_entry") return;
@@ -428,6 +530,7 @@ function Modal({ session, date, onClose, onDeleteAiEntry }: {
     session.kind === "ai_matched"  ? "Claudius · Completed" :
     session.kind === "matched"     ? `${s.label} · Completed` :
     session.kind === "planned"     ? `${s.label} · Planned` :
+    matchedPlan                    ? `${s.label} · Completed` :
                                      s.label;
 
   const title =
@@ -476,19 +579,52 @@ function Modal({ session, date, onClose, onDeleteAiEntry }: {
         {/* Body */}
         <div className="px-6 py-5 space-y-6">
 
-          {/* Done — stats only */}
-          {session.kind === "done" && <ActivityStats activity={activity!} />}
+          {/* Done — stats only (no plan found) */}
+          {session.kind === "done" && !matchedPlan && <ActivityStats activity={activity!} />}
 
-          {/* Matched — plan description + actual stats */}
+          {/* Done — plan found cross-date: show Plan vs Actual */}
+          {session.kind === "done" && matchedPlan && (
+            <>
+              {matchedPlan.description && (
+                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{matchedPlan.description}</p>
+              )}
+              <div>
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Plan vs Actual</p>
+                {loadingDetail ? (
+                  <p className="text-[8px] font-cinzel text-ash/40 animate-pulse tracking-widest">Loading plan data…</p>
+                ) : (
+                  <PlanVsActual rows={buildCompRows(workoutDetail, activity!, session.sport)} />
+                )}
+              </div>
+              {workoutDetail && workoutDetail.workoutSegments?.length > 0 && (
+                <div>
+                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Workout Steps</p>
+                  <WorkoutSteps detail={workoutDetail} />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Matched — plan description + plan vs actual comparison + steps */}
           {session.kind === "matched" && (
             <>
               {workout!.description && (
                 <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{workout!.description}</p>
               )}
               <div>
-                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-2">Actual</p>
-                <ActivityStats activity={activity!} />
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Plan vs Actual</p>
+                {loadingDetail ? (
+                  <p className="text-[8px] font-cinzel text-ash/40 animate-pulse tracking-widest">Loading plan data…</p>
+                ) : (
+                  <PlanVsActual rows={buildCompRows(workoutDetail, activity!, session.sport)} />
+                )}
               </div>
+              {workoutDetail && workoutDetail.workoutSegments?.length > 0 && (
+                <div>
+                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Workout Steps</p>
+                  <WorkoutSteps detail={workoutDetail} />
+                </div>
+              )}
             </>
           )}
 
@@ -555,7 +691,7 @@ function Modal({ session, date, onClose, onDeleteAiEntry }: {
 
           {/* Footer: data source */}
           {activity && (
-            <p className="text-[7px] font-cinzel tracking-[0.3em] text-ash/30 uppercase pt-2 border-t border-stone/20">
+            <p className="text-[7px] font-cinzel tracking-[0.3em] text-ash/60 uppercase pt-2 border-t border-stone/20">
               {isAi ? `Claudius · ${activity.source}` : activity.source}
             </p>
           )}
@@ -582,10 +718,12 @@ export default function Calendar() {
 
   useEffect(() => {
     const { year, month } = current;
-    const endOfMonth = new Date(year, month + 1, 0);
-    const msPerWeek  = 7 * 24 * 60 * 60 * 1000;
-    const weeksAhead = Math.max(2, Math.ceil((endOfMonth.getTime() - today.getTime()) / msPerWeek) + 1);
-    syncApi.calendar(weeksAhead).then(setPlanned).catch(() => {});
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth   = new Date(year, month + 1, 0);
+    const msPerWeek    = 7 * 24 * 60 * 60 * 1000;
+    const weeksAhead   = Math.max(2, Math.ceil((endOfMonth.getTime() - today.getTime()) / msPerWeek) + 1);
+    const weeksBack    = Math.max(0, Math.ceil((today.getTime() - startOfMonth.getTime()) / msPerWeek) + 1);
+    syncApi.calendar(weeksAhead, weeksBack).then(setPlanned).catch(() => {});
   }, [current.year, current.month]);
 
   // Close modal on Escape
@@ -759,6 +897,7 @@ export default function Calendar() {
           date={modal.date}
           onClose={() => setModal(null)}
           onDeleteAiEntry={(id) => setAiEntries((prev) => prev.filter((e) => e.id !== id))}
+          allPlans={planned}
         />
       )}
     </>
