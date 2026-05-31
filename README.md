@@ -11,7 +11,6 @@ A personal AI training coach that aggregates your endurance data from Garmin and
 - **Coaches** you through a Claude-powered chat — direct, data-driven, no fluff
 - **Calendar** shows planned workouts vs completed sessions with a Plan vs Actual comparison table
 - **Remembers** your training patterns using ML embeddings (pgvector) to give context-aware responses
-- **Telegram bot** for quick coaching access outside the browser
 
 ## Stack
 
@@ -24,7 +23,6 @@ A personal AI training coach that aggregates your endurance data from Garmin and
 | AI        | Claude (Anthropic API) — Haiku for chat, tool use |
 | Sync      | Garmin Connect (garth), Strava OAuth2             |
 | ML        | sentence-transformers for activity embeddings     |
-| Bot       | python-telegram-bot                               |
 | Infra     | Docker Compose                                    |
 
 ## Architecture
@@ -45,7 +43,6 @@ Claude API ────────────┤
 - A [Garmin Connect](https://connect.garmin.com) account
 - A [Strava](https://www.strava.com/settings/api) API app (free)
 - An [Anthropic API key](https://console.anthropic.com)
-- Optional: a Telegram bot token from [@BotFather](https://t.me/BotFather)
 
 ## Quick start
 
@@ -75,8 +72,6 @@ Copy `.env.example` to `.env` and fill in the values:
 | `STRAVA_REDIRECT_URI` | OAuth callback — default `http://localhost:8000/api/auth/strava/callback` |
 | `STRAVA_DEV_ACCESS_TOKEN` | Dev-only: your personal access token from strava.com/settings/api |
 | `STRAVA_DEV_REFRESH_TOKEN` | Dev-only: your refresh token from strava.com/settings/api |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token from @BotFather (optional) |
-| `TELEGRAM_ALLOWED_USERS` | Comma-separated Telegram user IDs allowed to use the bot |
 | `DB_USER` | Postgres user (default: `claudius`) |
 | `DB_PASSWORD` | Postgres password (default: `claudius`) |
 | `DB_NAME` | Postgres database name (default: `claudius`) |
@@ -102,8 +97,6 @@ Claudius/
 │       ├── components/      # Shared layout
 │       ├── services/        # Axios API client
 │       └── types/           # TypeScript types
-├── telegram-bot/
-│   └── bot.py
 ├── skill/
 │   └── reference/           # Claude coach skill reference docs (periodization, zones, etc.)
 ├── scripts/
@@ -136,12 +129,10 @@ Each activity is embedded with `sentence-transformers` and stored in PostgreSQL 
 - [x] TrainingPeaks coach plan via Garmin calendar
 - [x] Strava OAuth integration
 - [x] Claude AI coach (chat + tool use)
-- [x] Telegram bot
 - [x] ML memory with pgvector embeddings
 - [x] Calendar — Plan vs Actual comparison
 - [ ] Analytics page — CTL / ATL / TSB form curve
 - [ ] Scheduled auto-sync (APScheduler)
-- [ ] Daily Telegram digest
 - [ ] Production deployment guide
 
 ## Contributing

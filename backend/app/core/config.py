@@ -26,10 +26,6 @@ class Settings(BaseSettings):
     TRAININGPEAKS_CLIENT_ID: str = ""
     TRAININGPEAKS_CLIENT_SECRET: str = ""
 
-    # Telegram
-    TELEGRAM_BOT_TOKEN: str = ""
-    TELEGRAM_ALLOWED_USERS: str = ""
-
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://claudius:claudius@localhost:5432/claudius"
     REDIS_URL: str = "redis://localhost:6379"

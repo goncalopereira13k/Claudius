@@ -34,7 +34,6 @@ frontend/src/
   types/       TypeScript definitions
 
 skill/reference/   Claude coach skill reference docs
-telegram-bot/      Standalone Telegram bot
 ```
 
 ## Making Changes
