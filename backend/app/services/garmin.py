@@ -241,6 +241,20 @@ def invalidate_planned_cache() -> None:
     _planned_cache.clear()
 
 
+# ── Activity lap splits ───────────────────────────────────────────────────────
+
+async def get_activity_laps(activity_id: str) -> list[dict]:
+    """Fetch per-lap split data for a completed activity."""
+    def _fetch() -> list[dict]:
+        client = _get_client()
+        try:
+            data = client.get_activity_splits(activity_id)
+            return data.get("lapDTOs") or data.get("laps") or []
+        except Exception:
+            return []
+    return await asyncio.to_thread(_fetch)
+
+
 # ── Workout detail ────────────────────────────────────────────────────────────
 
 async def get_workout_detail(workout_id: str) -> dict:

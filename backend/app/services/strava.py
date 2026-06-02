@@ -1,4 +1,5 @@
 import httpx
+import json
 from app.core.config import settings
 
 STRAVA_API = "https://www.strava.com/api/v3"
@@ -113,6 +114,7 @@ async def sync_strava(access_token: str | None = None) -> list[dict]:
                 if duplicate:
                     continue
 
+            splits = item.get("splits_metric") or []
             session.add(Activity(
                 external_id=external_id,
                 source=Source.strava,
@@ -124,6 +126,7 @@ async def sync_strava(access_token: str | None = None) -> list[dict]:
                 avg_hr=item.get("average_heartrate"),
                 avg_power=item.get("average_watts"),
                 tss=None,
+                laps_json=json.dumps(splits) if splits else None,
             ))
         await session.commit()
 

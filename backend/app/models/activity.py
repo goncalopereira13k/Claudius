@@ -37,3 +37,4 @@ class Activity(Base):
     avg_cadence     = Column(Integer, nullable=True)   # spm (run) or rpm (bike)
     avg_speed       = Column(Float,   nullable=True)   # m/s
     max_hr          = Column(Integer, nullable=True)
+    laps_json       = Column(String,  nullable=True)   # JSON array of lap splits

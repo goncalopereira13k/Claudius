@@ -23,6 +23,7 @@ _NEW_ACTIVITY_COLS = [
     ("avg_cadence",    "INTEGER"),
     ("avg_speed",      "FLOAT"),
     ("max_hr",         "INTEGER"),
+    ("laps_json",      "TEXT"),
 ]
 
 _NEW_HEALTH_COLS = [
