@@ -145,6 +145,10 @@ SEARCH_TRAINING_HISTORY_TOOL = {
                 "type": "number",
                 "description": "Minimum distance in km. Optional.",
             },
+            "min_tss": {
+                "type": "number",
+                "description": "Minimum TSS (training stress score). Use 80+ to filter for hard/race-pace efforts and exclude easy runs.",
+            },
             "limit": {
                 "type": "integer",
                 "description": "Max results to return (default 20).",
@@ -325,6 +329,9 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 parts = [f"[id:{a.id}]", f"{day}", a.sport_type or "?", dist, dur]
                 if a.avg_hr:
                     parts.append(f"HR:{a.avg_hr}/{a.max_hr}" if a.max_hr else f"HR:{a.avg_hr}")
+                if a.avg_speed and a.sport_type and "run" in (a.sport_type or "").lower():
+                    sec_per_km = 1000 / a.avg_speed
+                    parts.append(f"pace:{int(sec_per_km // 60)}:{int(sec_per_km % 60):02d}/km")
                 if a.tss:
                     parts.append(f"TSS:{a.tss:.0f}")
                 if a.norm_power:
@@ -378,6 +385,8 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 conditions.append(Activity.start_date <= to_date)
             if min_dist := inputs.get("min_distance_km"):
                 conditions.append(Activity.distance_meters >= min_dist * 1000)
+            if min_tss := inputs.get("min_tss"):
+                conditions.append(Activity.tss >= min_tss)
             query = select(Activity).order_by(Activity.start_date.desc()).limit(limit)
             if conditions:
                 query = select(Activity).where(and_(*conditions)).order_by(Activity.start_date.desc()).limit(limit)
@@ -392,6 +401,9 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 parts = [f"{day}", a.sport_type or "?", dist, dur]
                 if a.avg_hr:
                     parts.append(f"HR:{a.avg_hr}")
+                if a.avg_speed and "run" in (a.sport_type or "").lower():
+                    sec_per_km = 1000 / a.avg_speed
+                    parts.append(f"pace:{int(sec_per_km // 60)}:{int(sec_per_km % 60):02d}/km")
                 if a.tss:
                     parts.append(f"TSS:{a.tss:.0f}")
                 if a.elevation_gain:

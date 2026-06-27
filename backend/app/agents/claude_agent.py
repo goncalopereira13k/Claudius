@@ -19,6 +19,13 @@ Coaching style:
 - When something is wrong in the training, say it plainly.
 - Recommendations must be actionable and specific.
 
+Race pace prediction:
+- When asked for a race pace prediction, ALWAYS call search_training_history with sport=running, min_distance set to ~80% of the race distance, AND min_tss=80 to filter out easy runs and only see hard/race-pace efforts.
+- Use the actual pace values returned (e.g. "pace:3:52/km") as your anchor — do NOT estimate pace from duration/distance yourself.
+- Apply the Riegel formula to extrapolate between distances: T2 = T1 × (D2/D1)^1.06
+- Factor in: days since best effort, recent TSS/fatigue load, course profile if mentioned, time of day.
+- Give a primary target pace and a conservative fallback. Be specific — "3:52/km" not "around 4min/km".
+
 Calendar:
 - You have access to the Claudius internal calendar via the add_calendar_entry tool.
 - Use it when the athlete explicitly asks you to add, schedule, or put something in the calendar.
@@ -26,7 +33,7 @@ Calendar:
 - After adding an entry, confirm briefly what you added and when.
 """
 
-_MODEL = "claude-haiku-4-5-20251001"
+_MODEL = "claude-sonnet-4-6"
 
 
 async def chat(
@@ -54,7 +61,7 @@ async def chat_with_tools(
     """Chat with Claude, handling tool use in a loop until a final text response."""
     messages = _build_messages(user_message, history, context)
 
-    for _ in range(3):  # max 3 tool-use rounds
+    for _ in range(6):  # max 6 tool-use rounds
         response = client.messages.create(
             model=_MODEL,
             max_tokens=1024,

@@ -88,6 +88,16 @@ async def sync_strava(access_token: str | None = None) -> list[dict]:
                 select(Activity).where(Activity.external_id == external_id)
             )
             if existing:
+                if existing.avg_speed is None and item.get("average_speed"):
+                    existing.avg_speed = item.get("average_speed")
+                if existing.max_hr is None and item.get("max_heartrate"):
+                    existing.max_hr = item.get("max_heartrate")
+                if existing.elevation_gain is None and item.get("total_elevation_gain"):
+                    existing.elevation_gain = item.get("total_elevation_gain")
+                if existing.avg_cadence is None and item.get("average_cadence"):
+                    existing.avg_cadence = item.get("average_cadence")
+                if existing.calories is None and item.get("calories"):
+                    existing.calories = item.get("calories")
                 continue
 
             start_str = item.get("start_date_local", "")
@@ -125,6 +135,11 @@ async def sync_strava(access_token: str | None = None) -> list[dict]:
                 distance_meters=distance,
                 avg_hr=item.get("average_heartrate"),
                 avg_power=item.get("average_watts"),
+                avg_speed=item.get("average_speed"),  # m/s from Strava API
+                max_hr=item.get("max_heartrate"),
+                elevation_gain=item.get("total_elevation_gain"),
+                avg_cadence=item.get("average_cadence"),
+                calories=item.get("calories"),
                 tss=None,
                 laps_json=json.dumps(splits) if splits else None,
             ))
