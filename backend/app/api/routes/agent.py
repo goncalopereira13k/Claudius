@@ -1,16 +1,19 @@
 import asyncio
+import json
 import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from app.agents.claude_agent import chat_with_tools
+from app.agents.claude_agent import chat_with_tools, chat_with_tools_stream
 from app.agents.context import build_training_context
 from app.core.database import get_db, AsyncSessionLocal
 from app.models.conversation import Conversation, Message
 from app.models.calendar_entry import UserCalendarEntry
 from app.models.activity import Activity
+from app.models.eval import ConversationEval
 
 log = logging.getLogger("claudius")
 router = APIRouter()
@@ -218,6 +221,21 @@ class MessageOut(BaseModel):
         from_attributes = True
 
 
+class EvalOut(BaseModel):
+    id: int
+    conversation_id: int
+    message_id: int | None
+    data_grounding: float
+    actionability: float
+    hallucination_risk: float
+    overall_score: float
+    judge_reasoning: str | None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
 async def _run_memory_extraction(conversation_id: int, messages: list[dict]) -> None:
     try:
         from app.services.memory_service import extract_and_save_memories
@@ -236,63 +254,30 @@ async def _run_suggestion_extraction(reply: str, conversation_id: int) -> None:
         log.warning("Suggestion extraction task failed: %s", e)
 
 
-@router.post("/conversations", response_model=ConversationOut)
-async def create_conversation(db: AsyncSession = Depends(get_db)):
-    conv = Conversation()
-    db.add(conv)
-    await db.commit()
-    await db.refresh(conv)
-    return ConversationOut(id=conv.id, title=conv.title or "", created_at=conv.created_at.isoformat())
+async def _run_evaluation(
+    user_message: str,
+    coach_reply: str,
+    training_context: str | None,
+    conversation_id: int,
+    message_id: int | None,
+) -> None:
+    try:
+        from app.services.evaluation_service import evaluate_response
+        async with AsyncSessionLocal() as db:
+            await evaluate_response(
+                user_message=user_message,
+                coach_reply=coach_reply,
+                training_context=training_context,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                db=db,
+            )
+    except Exception as e:
+        log.warning("Evaluation task failed: %s", e)
 
 
-@router.get("/conversations/{conversation_id}/messages", response_model=list[MessageOut])
-async def get_messages(conversation_id: int, db: AsyncSession = Depends(get_db)):
-    conv = await db.get(Conversation, conversation_id)
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    result = await db.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.id)
-    )
-    msgs = result.scalars().all()
-    return [
-        MessageOut(id=m.id, role=m.role, content=m.content, created_at=m.created_at.isoformat())
-        for m in msgs
-    ]
-
-
-@router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
-    # Resolve or create conversation
-    if req.conversation_id:
-        conv = await db.get(Conversation, req.conversation_id)
-        if not conv:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-    else:
-        conv = Conversation()
-        db.add(conv)
-        await db.flush()
-
-    # Save incoming user message
-    user_msg = Message(conversation_id=conv.id, role="user", content=req.message)
-    db.add(user_msg)
-    await db.flush()
-
-    # Load prior messages (excluding the one just added)
-    result = await db.execute(
-        select(Message)
-        .where(Message.conversation_id == conv.id)
-        .where(Message.id != user_msg.id)
-        .order_by(Message.id)
-    )
-    prior_msgs = result.scalars().all()
-    history = [{"role": m.role, "content": m.content} for m in prior_msgs]
-
-    # Build training + memory + pattern context only on the first message
-    context = await build_training_context(db) if not prior_msgs else None
-
-    # Tool executor — has access to the request-scoped DB session
+def _make_tool_executor(db: AsyncSession):
+    """Return an async tool executor function bound to the given DB session."""
     async def tool_executor(tool_name: str, inputs: dict) -> str:
         if tool_name == "add_calendar_entry":
             entry = UserCalendarEntry(
@@ -416,7 +401,6 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
             if not activity:
                 return f"No activity found with id {inputs['activity_id']}."
 
-            # Use cached laps if available; otherwise fetch from source API
             laps_raw = None
             if activity.laps_json:
                 import json as _json
@@ -448,7 +432,6 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
 
             lines = [header, "Laps:"]
             for i, lap in enumerate(laps_raw, 1):
-                # Normalise Garmin vs Strava field names
                 dist = lap.get("distance") or 0
                 dur = lap.get("elapsedDuration") or lap.get("elapsed_time") or 0
                 speed = lap.get("averageSpeed") or lap.get("average_speed")
@@ -470,27 +453,185 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
 
         return f"Unknown tool: {tool_name}"
 
+    return tool_executor
+
+
+@router.post("/conversations", response_model=ConversationOut)
+async def create_conversation(db: AsyncSession = Depends(get_db)):
+    conv = Conversation()
+    db.add(conv)
+    await db.commit()
+    await db.refresh(conv)
+    return ConversationOut(id=conv.id, title=conv.title or "", created_at=conv.created_at.isoformat())
+
+
+@router.get("/conversations/{conversation_id}/messages", response_model=list[MessageOut])
+async def get_messages(conversation_id: int, db: AsyncSession = Depends(get_db)):
+    conv = await db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.id)
+    )
+    msgs = result.scalars().all()
+    return [
+        MessageOut(id=m.id, role=m.role, content=m.content, created_at=m.created_at.isoformat())
+        for m in msgs
+    ]
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
+    if req.conversation_id:
+        conv = await db.get(Conversation, req.conversation_id)
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+    else:
+        conv = Conversation()
+        db.add(conv)
+        await db.flush()
+
+    user_msg = Message(conversation_id=conv.id, role="user", content=req.message)
+    db.add(user_msg)
+    await db.flush()
+
+    result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .where(Message.id != user_msg.id)
+        .order_by(Message.id)
+    )
+    prior_msgs = result.scalars().all()
+    history = [{"role": m.role, "content": m.content} for m in prior_msgs]
+    context = await build_training_context(db) if not prior_msgs else None
+
     reply = await chat_with_tools(
         req.message,
         tools=TOOLS,
-        tool_executor=tool_executor,
+        tool_executor=_make_tool_executor(db),
         history=history,
         context=context,
     )
 
-    db.add(Message(conversation_id=conv.id, role="assistant", content=reply))
-
+    asst_msg = Message(conversation_id=conv.id, role="assistant", content=reply)
+    db.add(asst_msg)
     if not prior_msgs and not conv.title:
         conv.title = req.message[:80]
-
     await db.commit()
+    await db.refresh(asst_msg)
 
-    # Fire-and-forget: memory extraction and suggestion tracking
     all_msgs = [{"role": m.role, "content": m.content} for m in prior_msgs]
     all_msgs.append({"role": "user", "content": req.message})
     all_msgs.append({"role": "assistant", "content": reply})
 
     asyncio.create_task(_run_memory_extraction(conv.id, all_msgs))
     asyncio.create_task(_run_suggestion_extraction(reply, conv.id))
+    asyncio.create_task(_run_evaluation(req.message, reply, context, conv.id, asst_msg.id))
 
     return ChatResponse(reply=reply, conversation_id=conv.id)
+
+
+@router.post("/chat/stream")
+async def chat_stream_endpoint(req: ChatRequest):
+    async def event_stream():
+        async with AsyncSessionLocal() as db:
+            try:
+                if req.conversation_id:
+                    conv = await db.get(Conversation, req.conversation_id)
+                    if not conv:
+                        yield f"data: {json.dumps({'type': 'error', 'message': 'Conversation not found'})}\n\n"
+                        return
+                else:
+                    conv = Conversation()
+                    db.add(conv)
+                    await db.flush()
+
+                user_msg = Message(conversation_id=conv.id, role="user", content=req.message)
+                db.add(user_msg)
+                await db.flush()
+
+                result = await db.execute(
+                    select(Message)
+                    .where(Message.conversation_id == conv.id)
+                    .where(Message.id != user_msg.id)
+                    .order_by(Message.id)
+                )
+                prior_msgs = result.scalars().all()
+                history = [{"role": m.role, "content": m.content} for m in prior_msgs]
+                context = await build_training_context(db) if not prior_msgs else None
+
+                yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conv.id})}\n\n"
+
+                full_reply = ""
+                async for chunk in chat_with_tools_stream(
+                    req.message,
+                    tools=TOOLS,
+                    tool_executor=_make_tool_executor(db),
+                    history=history,
+                    context=context,
+                ):
+                    full_reply += chunk
+                    yield f"data: {json.dumps({'type': 'text', 'text': chunk})}\n\n"
+
+                asst_msg = Message(conversation_id=conv.id, role="assistant", content=full_reply)
+                db.add(asst_msg)
+                if not prior_msgs and not conv.title:
+                    conv.title = req.message[:80]
+                await db.commit()
+                await db.refresh(asst_msg)
+
+                all_msgs = [{"role": m.role, "content": m.content} for m in prior_msgs]
+                all_msgs += [
+                    {"role": "user", "content": req.message},
+                    {"role": "assistant", "content": full_reply},
+                ]
+                asyncio.create_task(_run_memory_extraction(conv.id, all_msgs))
+                asyncio.create_task(_run_suggestion_extraction(full_reply, conv.id))
+                asyncio.create_task(_run_evaluation(req.message, full_reply, context, conv.id, asst_msg.id))
+
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+            except Exception as e:
+                log.error("chat/stream error: %s", e, exc_info=True)
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Internal error'})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.get("/evals", response_model=list[EvalOut])
+async def list_evals(
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ConversationEval)
+        .order_by(ConversationEval.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    records = result.scalars().all()
+    return [
+        EvalOut(
+            id=r.id,
+            conversation_id=r.conversation_id,
+            message_id=r.message_id,
+            data_grounding=r.data_grounding,
+            actionability=r.actionability,
+            hallucination_risk=r.hallucination_risk,
+            overall_score=r.overall_score,
+            judge_reasoning=r.judge_reasoning,
+            created_at=r.created_at.isoformat(),
+        )
+        for r in records
+    ]

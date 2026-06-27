@@ -110,3 +110,15 @@ export interface MessageRecord {
   content: string;
   created_at: string;
 }
+
+export interface ConversationEval {
+  id: number;
+  conversation_id: number;
+  message_id: number | null;
+  data_grounding: number;
+  actionability: number;
+  hallucination_risk: number;
+  overall_score: number;
+  judge_reasoning: string | null;
+  created_at: string;
+}

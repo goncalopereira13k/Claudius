@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Activity, ChatMessage, PlannedWorkout, HealthDay, Conversation, MessageRecord, WorkoutDetail, UserCalendarEntry } from "../types";
+import type { Activity, ChatMessage, PlannedWorkout, HealthDay, Conversation, MessageRecord, WorkoutDetail, UserCalendarEntry, ConversationEval } from "../types";
 
 const api = axios.create({ baseURL: "/api" });
 
@@ -46,6 +46,13 @@ export const healthApi = {
 export const calendarEntriesApi = {
   list: () => api.get<UserCalendarEntry[]>("/calendar/entries").then((r) => r.data),
   delete: (id: number) => api.delete(`/calendar/entries/${id}`).then((r) => r.data),
+};
+
+export const evalsApi = {
+  list: (limit = 50, offset = 0) =>
+    api
+      .get<ConversationEval[]>("/agent/evals", { params: { limit, offset } })
+      .then((r) => r.data),
 };
 
 export { ChatMessage };

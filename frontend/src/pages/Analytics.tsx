@@ -3,8 +3,8 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell,
 } from "recharts";
-import { activitiesApi, healthApi } from "../services/api";
-import type { Activity, HealthDay } from "../types";
+import { activitiesApi, healthApi, evalsApi } from "../services/api";
+import type { Activity, HealthDay, ConversationEval } from "../types";
 import { useTheme, useChartColors } from "../contexts/ThemeContext";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -173,6 +173,7 @@ export default function Analytics() {
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [health, setHealth]         = useState<HealthDay[]>([]);
+  const [evals, setEvals]           = useState<ConversationEval[]>([]);
   const [period, setPeriod]         = useState<Period>("3M");
   const [volTab, setVolTab]         = useState("Distance");
   const [hlthTab, setHlthTab]       = useState("HRV");
@@ -181,6 +182,7 @@ export default function Analytics() {
   useEffect(() => {
     activitiesApi.list().then(setActivities).catch(() => {});
     healthApi.list(365).then(setHealth).catch(() => {});
+    evalsApi.list(100).then(setEvals).catch(() => {});
   }, []);
 
   // Filtered sets
@@ -280,6 +282,19 @@ export default function Analytics() {
     }, null);
   const longestDistAct = activities.reduce<Activity | null>((b, a) => !b || a.distance_meters > b.distance_meters ? a : b, null);
   const longestDurAct  = activities.reduce<Activity | null>((b, a) => !b || a.duration_seconds > b.duration_seconds ? a : b, null);
+
+  // Coach quality evals
+  const evalChartData = useMemo(() => {
+    const c = cutoff(PERIOD_DAYS[period]);
+    const filtered = c ? evals.filter(e => new Date(e.created_at) >= c) : evals;
+    return [...filtered].reverse().map(e => ({
+      label: new Date(e.created_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" }),
+      overall:       +e.overall_score.toFixed(2),
+      grounding:     +e.data_grounding.toFixed(2),
+      actionability: +e.actionability.toFixed(2),
+      reliability:   +(1 - e.hallucination_risk).toFixed(2),
+    }));
+  }, [evals, period]);
 
   // Sport breakdown
   const sportMap = useMemo(() => {
@@ -571,6 +586,55 @@ export default function Analytics() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Coach Quality Evals ── */}
+      {evalChartData.length > 0 && (
+        <div>
+          <SectionTitle>Coach Quality · LLM Eval</SectionTitle>
+          <p className="text-[8px] font-cinzel text-ash/60 uppercase tracking-widest mb-4">
+            Scored by Claude Haiku after each reply · Grounding = data citation · Reliability = 1 − hallucination risk
+          </p>
+          {(() => {
+            const last = evalChartData.slice(-10);
+            const avg = (k: keyof typeof last[0]) =>
+              (last.reduce((s, e) => s + (e[k] as number), 0) / last.length).toFixed(2);
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <StatCard label="Avg Overall"       value={avg("overall")}       sub={`last ${last.length} replies`} />
+                <StatCard label="Avg Grounding"     value={avg("grounding")}     sub="data citation" />
+                <StatCard label="Avg Actionability" value={avg("actionability")} sub="advice specificity" />
+                <StatCard label="Avg Reliability"   value={avg("reliability")}   sub="1 − hallucination" />
+              </div>
+            );
+          })()}
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={evalChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={ch.grid} vertical={false} />
+              <XAxis dataKey="label" tick={AX} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={AX} axisLine={false} tickLine={false} width={32} domain={[0, 1]} />
+              <Tooltip {...TIP} />
+              <ReferenceLine y={0.7} stroke={ch.tooltipBorder} strokeDasharray="3 3" />
+              <Line type="monotone" dataKey="overall"       stroke={C.ctl}   dot={false} strokeWidth={2.5} name="Overall" />
+              <Line type="monotone" dataKey="grounding"     stroke={C.sleep} dot={false} strokeWidth={1.5} name="Grounding" />
+              <Line type="monotone" dataKey="actionability" stroke={C.hrv}   dot={false} strokeWidth={1.5} name="Actionability" />
+              <Line type="monotone" dataKey="reliability"   stroke={C.stress} dot={false} strokeWidth={1.5} strokeDasharray="4 2" name="Reliability" />
+            </LineChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-5 mt-3 justify-center">
+            {([
+              { color: C.ctl,    label: "Overall" },
+              { color: C.sleep,  label: "Grounding" },
+              { color: C.hrv,    label: "Actionability" },
+              { color: C.stress, label: "Reliability (1−hallucination)" },
+            ] as const).map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 inline-block" style={{ background: color }} />
+                <span className="text-[8px] font-cinzel text-ash uppercase">{label}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

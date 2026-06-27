@@ -53,11 +53,56 @@ export default function Chat() {
     setLoading(true);
 
     try {
-      const { reply, conversation_id } = await agentApi.chat(text, conversationId ?? undefined);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-      if (!conversationId) {
-        setConversationId(conversation_id);
-        localStorage.setItem(STORAGE_KEY, String(conversation_id));
+      const response = await fetch("/api/agent/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, conversation_id: conversationId ?? undefined }),
+      });
+
+      if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let firstChunk = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          let payload: { type: string; [key: string]: unknown };
+          try { payload = JSON.parse(raw); } catch { continue; }
+
+          if (payload.type === "meta" && !conversationId) {
+            const cid = payload.conversation_id as number;
+            setConversationId(cid);
+            localStorage.setItem(STORAGE_KEY, String(cid));
+          } else if (payload.type === "text") {
+            const chunk = payload.text as string;
+            if (firstChunk) {
+              setLoading(false);
+              setMessages((prev) => [...prev, { role: "assistant" as const, content: chunk }]);
+              firstChunk = false;
+            } else {
+              setMessages((prev) => {
+                const msgs = [...prev];
+                const last = msgs[msgs.length - 1];
+                msgs[msgs.length - 1] = { ...last, content: last.content + chunk };
+                return msgs;
+              });
+            }
+          } else if (payload.type === "error") {
+            throw new Error(payload.message as string);
+          }
+        }
       }
     } catch {
       setMessages((prev) => [

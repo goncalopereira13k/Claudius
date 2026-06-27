@@ -1,7 +1,9 @@
+from typing import AsyncGenerator
 import anthropic
 from app.core.config import settings
 
 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+async_client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 SYSTEM_PROMPT = """
 You are Claudius, an elite endurance coach with 20+ years of experience working with
@@ -93,6 +95,57 @@ async def chat_with_tools(
         messages.append({"role": "user", "content": tool_results})
 
     return "I wasn't able to complete that action."
+
+
+async def chat_with_tools_stream(
+    user_message: str,
+    tools: list[dict],
+    tool_executor,
+    history: list[dict] | None = None,
+    context: str | None = None,
+) -> AsyncGenerator[str, None]:
+    """Like chat_with_tools but streams the final text response token-by-token.
+
+    Tool-call rounds stay blocking (full tool input needed before execution).
+    Only the last text-only response is streamed.
+    """
+    messages = _build_messages(user_message, history, context)
+
+    for _ in range(5):  # blocking tool-call rounds
+        response = client.messages.create(
+            model=_MODEL,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            tools=tools,
+            messages=messages,
+        )
+
+        if response.stop_reason != "tool_use":
+            yield next((b.text for b in response.content if hasattr(b, "text")), "")
+            return
+
+        messages.append({"role": "assistant", "content": response.content})
+        tool_results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                result = await tool_executor(block.name, block.input)
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": result,
+                })
+        messages.append({"role": "user", "content": tool_results})
+
+    # All tool rounds done — stream the final text response
+    async with async_client.messages.stream(
+        model=_MODEL,
+        max_tokens=1024,
+        system=SYSTEM_PROMPT,
+        tools=tools,
+        messages=messages,
+    ) as stream:
+        async for chunk in stream.text_stream:
+            yield chunk
 
 
 def _build_messages(

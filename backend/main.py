@@ -13,6 +13,7 @@ from app.models import health as _health_models  # noqa: F401 — registers Dail
 from app.models import conversation as _conversation_models  # noqa: F401 — registers Conversation + Message in Base.metadata
 from app.models import memory as _memory_models  # noqa: F401 — registers UserMemory, TrainingPattern, CoachingSuggestion
 from app.models import calendar_entry as _calendar_entry_models  # noqa: F401 — registers UserCalendarEntry
+from app.models import eval as _eval_models  # noqa: F401 — registers ConversationEval
 from app.api.routes import auth, activities, agent, sync, health, memory, calendar_entries
 
 _NEW_ACTIVITY_COLS = [
