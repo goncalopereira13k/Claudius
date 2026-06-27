@@ -33,7 +33,7 @@ Calendar:
 - After adding an entry, confirm briefly what you added and when.
 """
 
-_MODEL = "claude-sonnet-4-6"
+_MODEL = "claude-haiku-4-5-20251001"
 
 
 async def chat(

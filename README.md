@@ -20,7 +20,7 @@ A personal AI training coach that aggregates your endurance data from Garmin and
 | Backend   | Python 3.12 + FastAPI + SQLAlchemy (async)        |
 | Database  | PostgreSQL 16 with pgvector extension             |
 | Cache     | Redis                                             |
-| AI        | Claude (Anthropic API) — Sonnet for chat, tool use |
+| AI        | Claude (Anthropic API) — Haiku for chat, tool use |
 | Sync      | Garmin Connect (garth), Strava OAuth2             |
 | ML        | sentence-transformers for activity embeddings     |
 | Infra     | Docker Compose                                    |
