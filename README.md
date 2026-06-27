@@ -40,44 +40,16 @@ Claude API ────────────┤
 
 ```mermaid
 flowchart TD
-    subgraph Sync["Data Ingestion (on demand)"]
-        GA[Garmin Connect API] -->|activities · laps · calendar| SG[sync_garmin]
-        SA[Strava API] -->|activities · splits| SS[sync_strava]
-        SG & SS -->|upsert| DB[(PostgreSQL + pgvector)]
-        DB -->|embed new activities| EMB[sentence-transformers]
-        EMB -->|store vector| DB
-    end
-
-    subgraph Chat["AI Coach Chat Flow"]
-        U([User message\nReact Chat UI]) -->|POST /api/agent/chat| API[FastAPI]
-
-        API --> CTX{First message\nin conversation?}
-
-        CTX -->|Yes| BC[build_training_context]
-        BC -->|last 10 activities\n7-day health data\nplanned workouts\npgvector similarity| DB
-        BC --> MERGE[Inject context into prompt]
-
-        CTX -->|No| HIST[Load conversation\nhistory from DB]
-        MERGE & HIST --> LLM
-
-        LLM["Claude Sonnet\nchat_with_tools\nup to 6 tool rounds"] --> TR{Tool call\nneeded?}
-
-        TR -->|yes| TOOL[Tool Executor]
-        TOOL --> T1[search_training_history\nfilter by sport · distance · TSS]
-        TOOL --> T2[get_activities\nrecent runs with pace + HR]
-        TOOL --> T3[get_activity_detail\nlap splits from Garmin API or DB cache]
-        TOOL --> T4[add · get · delete\ncalendar entry]
-        T1 & T2 & T3 & T4 -->|tool result| LLM
-
-        TR -->|final text| REPLY[Reply text]
-        REPLY -->|save| DB
-        REPLY --> U2([Response to user])
-
-        REPLY -->|async fire-and-forget| BG[Background tasks]
-        BG --> MEM[Memory extraction\nextract_and_save_memories]
-        BG --> SUG[Suggestion extraction\nextract_suggestions]
-        MEM & SUG --> DB
-    end
+    Sync[Garmin · Strava sync] -->|upsert + embed| DB[(PostgreSQL + pgvector)]
+    U([User]) -->|message| Chat[FastAPI /agent/chat]
+    Chat -->|first message: build context| DB
+    DB --> Claude[Claude Sonnet]
+    Chat --> Claude
+    Claude <-->|tool calls & results| Tools[search · activities · laps · calendar]
+    Tools --- DB
+    Claude -->|reply| U
+    Claude -.->|async| BG[Memory & suggestion extraction]
+    BG --> DB
 ```
 
 ## Prerequisites
