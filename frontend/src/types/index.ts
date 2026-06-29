@@ -96,6 +96,10 @@ export interface UserCalendarEntry {
   description: string | null;
   created_by: string;
   created_at: string;
+  surface_type: string | null;
+  distance_km: number | null;
+  target_pace: string | null;
+  goal_time: string | null;
 }
 
 export interface Conversation {

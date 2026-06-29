@@ -31,6 +31,13 @@ _NEW_HEALTH_COLS = [
     ("vo2_max", "FLOAT"),
 ]
 
+_NEW_CALENDAR_COLS = [
+    ("surface_type", "VARCHAR"),
+    ("distance_km",  "FLOAT"),
+    ("target_pace",  "VARCHAR"),
+    ("goal_time",    "VARCHAR"),
+]
+
 
 async def _warm_calendar_cache() -> None:
     try:
@@ -86,6 +93,10 @@ async def lifespan(app: FastAPI):
         for col_name, col_type in _NEW_HEALTH_COLS:
             await conn.execute(
                 text(f"ALTER TABLE daily_health ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+            )
+        for col_name, col_type in _NEW_CALENDAR_COLS:
+            await conn.execute(
+                text(f"ALTER TABLE user_calendar_entries ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
             )
     asyncio.create_task(_startup_sync())
     asyncio.create_task(_warm_calendar_cache())

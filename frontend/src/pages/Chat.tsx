@@ -20,6 +20,14 @@ export default function Chat() {
     return stored ? parseInt(stored, 10) : null;
   });
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -133,7 +141,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="w-full flex flex-col" style={{ height: "calc(100vh - 160px)" }}>
+    <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center gap-4 mb-6 shrink-0">
         <h1 className="text-2xl font-cinzel tracking-widest uppercase">Colloquium</h1>
         <div className="flex-1 h-px bg-stone" />
@@ -157,7 +165,8 @@ export default function Chat() {
         </p>
       )}
 
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
+      <div className="flex-1 overflow-y-auto pr-1 mb-4">
+        <div className="flex flex-col justify-end min-h-full space-y-4">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
@@ -199,15 +208,23 @@ export default function Chat() {
           </div>
         )}
         <div ref={bottomRef} />
+        </div>
       </div>
 
       <div className="flex gap-3 border-t-2 border-stone pt-4 shrink-0">
-        <input
-          className="flex-1 bg-parchment border border-stone px-4 py-3 text-sm text-ink placeholder-ash/50 focus:outline-none focus:border-ink transition-colors"
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          className="flex-1 bg-parchment border border-stone px-4 py-3 text-sm text-ink placeholder-ash/50 focus:outline-none focus:border-ink transition-colors resize-none overflow-hidden"
           placeholder="Scribe hic..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
         />
         <button
           onClick={send}

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Float, Integer, String, Text, DateTime
 from app.models.activity import Base
 
 
@@ -16,3 +16,8 @@ class UserCalendarEntry(Base):
     description = Column(Text, nullable=True)
     created_by = Column(String, nullable=False, default="ai")  # "ai" | "user"
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Structured race / workout details
+    surface_type = Column(String, nullable=True)   # "road" | "trail" | "track" | "indoor"
+    distance_km = Column(Float, nullable=True)
+    target_pace = Column(String, nullable=True)    # e.g. "3:43/km"
+    goal_time = Column(String, nullable=True)      # e.g. "29:47"

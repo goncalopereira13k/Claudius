@@ -455,7 +455,7 @@ function PlanVsActual({ rows }: { rows: CompRow[] }) {
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-tablet px-3 py-2 min-w-[72px]">
-      <p className="text-[7px] font-cinzel tracking-[0.3em] uppercase text-ash/70 mb-0.5">{label}</p>
+      <p className="text-[7px] font-cinzel tracking-[0.3em] uppercase text-ash mb-0.5">{label}</p>
       <p className="text-sm font-cinzel text-ink leading-none">{value}</p>
     </div>
   );
@@ -545,8 +545,7 @@ function Modal({ session, date, onClose, onDeleteAiEntry, allPlans }: {
       onClick={onClose}
     >
       <div
-        className="bg-parchment w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl"
-        style={{ border: "1px solid #d4c9a8" }}
+        className="bg-parchment border border-stone w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -561,11 +560,11 @@ function Modal({ session, date, onClose, onDeleteAiEntry, allPlans }: {
                 }
               </div>
               <div className="min-w-0">
-                <p className="text-[8px] font-cinzel tracking-[0.4em] uppercase text-ash/60 mb-1">
+                <p className="text-[8px] font-cinzel tracking-[0.4em] uppercase text-ash mb-1">
                   {statusLabel}
                 </p>
                 <p className="font-cinzel text-ink text-base leading-tight truncate">{title}</p>
-                <p className="text-[9px] font-cinzel text-ash/50 mt-1.5">
+                <p className="text-[9px] font-cinzel text-ash mt-1.5">
                   {d.toLocaleDateString("pt-PT", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 </p>
               </div>
@@ -586,19 +585,19 @@ function Modal({ session, date, onClose, onDeleteAiEntry, allPlans }: {
           {session.kind === "done" && matchedPlan && (
             <>
               {matchedPlan.description && (
-                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{matchedPlan.description}</p>
+                <p className="text-[9px] font-cinzel text-ink leading-relaxed">{matchedPlan.description}</p>
               )}
               <div>
-                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Plan vs Actual</p>
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-3">Plan vs Actual</p>
                 {loadingDetail ? (
-                  <p className="text-[8px] font-cinzel text-ash/40 animate-pulse tracking-widest">Loading plan data…</p>
+                  <p className="text-[8px] font-cinzel text-ash animate-pulse tracking-widest">Loading plan data…</p>
                 ) : (
                   <PlanVsActual rows={buildCompRows(workoutDetail, activity!, session.sport)} />
                 )}
               </div>
               {workoutDetail && workoutDetail.workoutSegments?.length > 0 && (
                 <div>
-                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Workout Steps</p>
+                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-3">Workout Steps</p>
                   <WorkoutSteps detail={workoutDetail} />
                 </div>
               )}
@@ -609,19 +608,19 @@ function Modal({ session, date, onClose, onDeleteAiEntry, allPlans }: {
           {session.kind === "matched" && (
             <>
               {workout!.description && (
-                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{workout!.description}</p>
+                <p className="text-[9px] font-cinzel text-ink leading-relaxed">{workout!.description}</p>
               )}
               <div>
-                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Plan vs Actual</p>
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-3">Plan vs Actual</p>
                 {loadingDetail ? (
-                  <p className="text-[8px] font-cinzel text-ash/40 animate-pulse tracking-widest">Loading plan data…</p>
+                  <p className="text-[8px] font-cinzel text-ash animate-pulse tracking-widest">Loading plan data…</p>
                 ) : (
                   <PlanVsActual rows={buildCompRows(workoutDetail, activity!, session.sport)} />
                 )}
               </div>
               {workoutDetail && workoutDetail.workoutSegments?.length > 0 && (
                 <div>
-                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Workout Steps</p>
+                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-3">Workout Steps</p>
                   <WorkoutSteps detail={workoutDetail} />
                 </div>
               )}
@@ -632,40 +631,85 @@ function Modal({ session, date, onClose, onDeleteAiEntry, allPlans }: {
           {session.kind === "planned" && (
             <>
               {workout!.description && (
-                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{workout!.description}</p>
+                <p className="text-[9px] font-cinzel text-ink leading-relaxed">{workout!.description}</p>
               )}
               {loadingDetail && (
-                <p className="text-[8px] font-cinzel text-ash/40 animate-pulse tracking-widest">Loading steps...</p>
+                <p className="text-[8px] font-cinzel text-ash animate-pulse tracking-widest">Loading steps...</p>
               )}
               {workoutDetail && workoutDetail.workoutSegments?.length > 0 && (
                 <div>
-                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-3">Workout Steps</p>
+                  <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-3">Workout Steps</p>
                   <WorkoutSteps detail={workoutDetail} />
                 </div>
               )}
               {!loadingDetail && !workoutDetail && (
-                <p className="text-[9px] font-cinzel text-ash/40 italic">Not yet completed.</p>
+                <p className="text-[9px] font-cinzel text-ash italic">Not yet completed.</p>
               )}
             </>
           )}
 
-          {/* AI entry — time/duration/notes + delete */}
+          {/* AI entry — structured details + delete */}
           {session.kind === "ai_entry" && (
             <>
-              <div className="flex flex-wrap gap-2">
-                {aiEntry!.time_of_day && <StatTile label="Time" value={aiEntry!.time_of_day} />}
-                {aiEntry!.duration_minutes && <StatTile label="Duration" value={`${aiEntry!.duration_minutes} min`} />}
-              </div>
-              {aiEntry!.description && (
-                <p className="text-[9px] font-cinzel text-ash/70 leading-relaxed">{aiEntry!.description}</p>
+              {/* Key metrics grid */}
+              {(aiEntry!.distance_km || aiEntry!.target_pace || aiEntry!.goal_time || aiEntry!.surface_type || aiEntry!.time_of_day || aiEntry!.duration_minutes) && (
+                <div className="grid grid-cols-2 gap-2">
+                  {aiEntry!.distance_km && (
+                    <div className="bg-tablet border border-stone/40 px-4 py-3">
+                      <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-1">Distance</p>
+                      <p className="text-lg font-cinzel text-ink leading-none">{aiEntry!.distance_km} km</p>
+                    </div>
+                  )}
+                  {aiEntry!.target_pace && (
+                    <div className="bg-tablet border border-stone/40 px-4 py-3">
+                      <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-1">Target Pace</p>
+                      <p className="text-lg font-cinzel text-ink leading-none">{aiEntry!.target_pace}</p>
+                    </div>
+                  )}
+                  {aiEntry!.goal_time && (
+                    <div className="bg-tablet border border-stone/40 px-4 py-3">
+                      <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-1">Goal Time</p>
+                      <p className="text-lg font-cinzel text-ink leading-none">{aiEntry!.goal_time}</p>
+                    </div>
+                  )}
+                  {aiEntry!.surface_type && (
+                    <div className="bg-tablet border border-stone/40 px-4 py-3">
+                      <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-1">Surface</p>
+                      <p className="text-lg font-cinzel text-ink leading-none capitalize">{aiEntry!.surface_type}</p>
+                    </div>
+                  )}
+                  {aiEntry!.time_of_day && (
+                    <div className="bg-tablet border border-stone/40 px-4 py-3">
+                      <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-1">Start Time</p>
+                      <p className="text-lg font-cinzel text-ink leading-none">{aiEntry!.time_of_day}</p>
+                    </div>
+                  )}
+                  {aiEntry!.duration_minutes && (
+                    <div className="bg-tablet border border-stone/40 px-4 py-3">
+                      <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-1">Duration</p>
+                      <p className="text-lg font-cinzel text-ink leading-none">{aiEntry!.duration_minutes} min</p>
+                    </div>
+                  )}
+                </div>
               )}
-              <button
-                onClick={handleDeleteAiEntry}
-                disabled={deleting}
-                className="text-[8px] font-cinzel tracking-[0.25em] uppercase text-ash/40 hover:text-ink disabled:opacity-30 transition-colors"
-              >
-                {deleting ? "Removing..." : "Remove from calendar"}
-              </button>
+
+              {aiEntry!.description && (
+                <div className="border-l-2 border-bronze/40 pl-4">
+                  <p className="text-[8px] font-cinzel tracking-[0.25em] uppercase text-ash mb-2">Coach Notes</p>
+                  <p className="text-[10px] font-cinzel text-ink leading-relaxed">{aiEntry!.description}</p>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-stone/20 flex items-center justify-between">
+                <p className="text-[7px] font-cinzel tracking-[0.3em] text-ash uppercase">Claudius · Scheduled</p>
+                <button
+                  onClick={handleDeleteAiEntry}
+                  disabled={deleting}
+                  className="text-[8px] font-cinzel tracking-[0.2em] uppercase text-ash hover:text-rose-600 disabled:opacity-30 transition-colors"
+                >
+                  {deleting ? "Removing..." : "Remove"}
+                </button>
+              </div>
             </>
           )}
 
@@ -673,17 +717,23 @@ function Modal({ session, date, onClose, onDeleteAiEntry, allPlans }: {
           {session.kind === "ai_matched" && (
             <>
               <div>
-                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-2">Scheduled</p>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {aiEntry!.time_of_day && <StatTile label="Time" value={aiEntry!.time_of_day} />}
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-3">Scheduled</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {aiEntry!.distance_km && <StatTile label="Distance" value={`${aiEntry!.distance_km} km`} />}
+                  {aiEntry!.target_pace && <StatTile label="Target Pace" value={aiEntry!.target_pace} />}
+                  {aiEntry!.goal_time && <StatTile label="Goal Time" value={aiEntry!.goal_time} />}
+                  {aiEntry!.surface_type && <StatTile label="Surface" value={aiEntry!.surface_type} />}
+                  {aiEntry!.time_of_day && <StatTile label="Start Time" value={aiEntry!.time_of_day} />}
                   {aiEntry!.duration_minutes && <StatTile label="Planned" value={`${aiEntry!.duration_minutes} min`} />}
                 </div>
                 {aiEntry!.description && (
-                  <p className="text-[9px] font-cinzel text-ash/60 leading-relaxed">{aiEntry!.description}</p>
+                  <div className="border-l-2 border-bronze/40 pl-4">
+                    <p className="text-[10px] font-cinzel text-ash/70 leading-relaxed">{aiEntry!.description}</p>
+                  </div>
                 )}
               </div>
               <div>
-                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash/40 mb-2">Actual</p>
+                <p className="text-[7px] font-cinzel tracking-[0.35em] uppercase text-ash mb-2">Actual</p>
                 <ActivityStats activity={activity!} />
               </div>
             </>

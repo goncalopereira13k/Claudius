@@ -23,14 +23,16 @@ ADD_CALENDAR_ENTRY_TOOL = {
     "description": (
         "Add a planned workout or event to the Claudius internal calendar. "
         "Use this when the athlete asks to schedule or add something to the calendar. "
-        "This does NOT sync to Garmin or Google Calendar."
+        "This does NOT sync to Garmin or Google Calendar. "
+        "For races and key workouts, fill in structured fields (distance_km, target_pace, goal_time, surface_type) "
+        "so the athlete can see full details on the calendar."
     ),
     "input_schema": {
         "type": "object",
         "properties": {
             "title": {
                 "type": "string",
-                "description": "Name of the workout or event (e.g. 'Knee Strength Work')",
+                "description": "Name of the workout or event (e.g. '8km Road Race')",
             },
             "date": {
                 "type": "string",
@@ -38,19 +40,35 @@ ADD_CALENDAR_ENTRY_TOOL = {
             },
             "time_of_day": {
                 "type": "string",
-                "description": "Time in HH:MM 24h format, optional (e.g. '19:00')",
+                "description": "Time in HH:MM 24h format, optional (e.g. '09:00')",
             },
             "duration_minutes": {
                 "type": "integer",
-                "description": "Duration in minutes, optional (e.g. 20)",
+                "description": "Expected duration in minutes, optional",
             },
             "sport_type": {
                 "type": "string",
-                "description": "Type: run, bike, swim, gym, or other",
+                "description": "Type: run, bike, swim, gym, race, or other",
+            },
+            "surface_type": {
+                "type": "string",
+                "description": "Surface: road, trail, track, or indoor. Use for runs and races.",
+            },
+            "distance_km": {
+                "type": "number",
+                "description": "Distance in km (e.g. 8.0 for an 8km race)",
+            },
+            "target_pace": {
+                "type": "string",
+                "description": "Target pace per km (e.g. '3:43/km'). Use for races and tempo workouts.",
+            },
+            "goal_time": {
+                "type": "string",
+                "description": "Goal finish time (e.g. '29:47'). Use for races.",
             },
             "description": {
                 "type": "string",
-                "description": "Workout details or notes, optional",
+                "description": "Additional notes, context, or coaching remarks",
             },
         },
         "required": ["title", "date"],
@@ -288,12 +306,17 @@ def _make_tool_executor(db: AsyncSession):
                 sport_type=inputs.get("sport_type", "other"),
                 description=inputs.get("description"),
                 created_by="ai",
+                surface_type=inputs.get("surface_type"),
+                distance_km=inputs.get("distance_km"),
+                target_pace=inputs.get("target_pace"),
+                goal_time=inputs.get("goal_time"),
             )
             db.add(entry)
             await db.flush()
             time_str = f" at {inputs['time_of_day']}" if inputs.get("time_of_day") else ""
             dur_str = f" ({inputs['duration_minutes']} min)" if inputs.get("duration_minutes") else ""
-            return f"Added to Claudius calendar: '{inputs['title']}' on {inputs['date']}{time_str}{dur_str}."
+            pace_str = f", target {inputs['target_pace']}" if inputs.get("target_pace") else ""
+            return f"Added to Claudius calendar: '{inputs['title']}' on {inputs['date']}{time_str}{dur_str}{pace_str}."
 
         if tool_name == "get_activities":
             limit = min(inputs.get("limit", 10), 30)

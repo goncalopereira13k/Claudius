@@ -16,6 +16,10 @@ class EntryCreate(BaseModel):
     sport_type: str | None = "other"
     description: str | None = None
     created_by: str = "user"
+    surface_type: str | None = None
+    distance_km: float | None = None
+    target_pace: str | None = None
+    goal_time: str | None = None
 
 
 class EntryOut(BaseModel):
@@ -28,6 +32,10 @@ class EntryOut(BaseModel):
     description: str | None
     created_by: str
     created_at: str
+    surface_type: str | None = None
+    distance_km: float | None = None
+    target_pace: str | None = None
+    goal_time: str | None = None
 
     class Config:
         from_attributes = True
@@ -43,6 +51,8 @@ async def list_entries(db: AsyncSession = Depends(get_db)):
             duration_minutes=e.duration_minutes, sport_type=e.sport_type,
             description=e.description, created_by=e.created_by,
             created_at=e.created_at.isoformat(),
+            surface_type=e.surface_type, distance_km=e.distance_km,
+            target_pace=e.target_pace, goal_time=e.goal_time,
         )
         for e in entries
     ]
@@ -59,6 +69,8 @@ async def create_entry(data: EntryCreate, db: AsyncSession = Depends(get_db)):
         duration_minutes=entry.duration_minutes, sport_type=entry.sport_type,
         description=entry.description, created_by=entry.created_by,
         created_at=entry.created_at.isoformat(),
+        surface_type=entry.surface_type, distance_km=entry.distance_km,
+        target_pace=entry.target_pace, goal_time=entry.goal_time,
     )
 
 
