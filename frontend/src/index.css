@@ -1,35 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ══════════════════════════════════════════════════════════════════════════
+   CLAVDIVS — Marble & Gold
+   Light: Pentelic marble under Attic sun.  Dark: midnight temple, oil lamps.
+   ══════════════════════════════════════════════════════════════════════════ */
+
 /* ── Light mode base ─────────────────────────────────────────────────────── */
 body {
-  background-color: #faf8f3;
-  color: #14110c;
+  background-color: #eae4d3;
+  color: #221c11;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(255 252 240 / 0.9), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* Marble grain over everything (film-grain style, barely visible) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* ── Dark palette tokens ─────────────────────────────────────────────────── */
 .dark {
-  --dk-parchment: #1c1810;
-  --dk-tablet:    #13110d;
-  --dk-ink:       #e8e0cc;
-  --dk-ash:       #998870;
-  --dk-stone:     #3e3628;
-  --dk-gold:      #d4ac4c;
-  --dk-bronze:    #c8a238;
+  --dk-parchment: #0f0d09;
+  --dk-tablet:    #181510;
+  --dk-ink:       #ede3c8;
+  --dk-ash:       #a3906c;
+  --dk-stone:     #453a26;
+  --dk-gold:      #dcb75f;
+  --dk-bronze:    #d0a848;
 
-  --dk-stone-rgb: 62 54 40;
-  --dk-ash-rgb:   153 136 112;
-  --dk-gold-rgb:  212 172 76;
-  --dk-ink-rgb:   232 224 204;
+  --dk-stone-rgb: 69 58 38;
+  --dk-ash-rgb:   163 144 108;
+  --dk-gold-rgb:  220 183 95;
+  --dk-ink-rgb:   237 227 200;
 }
 
 /* ── Body ────────────────────────────────────────────────────────────────── */
 .dark body {
   background-color: var(--dk-parchment);
   color: var(--dk-ink);
+  background-image:
+    radial-gradient(ellipse 70% 45% at 30% -5%, rgb(220 183 95 / 0.06), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 100% 110%, rgb(0 0 0 / 0.55), transparent 60%);
 }
+.dark body::before { opacity: 0.07; }
 
 /* ── Background ──────────────────────────────────────────────────────────── */
 .dark .bg-parchment          { background-color: var(--dk-parchment); }
@@ -39,7 +62,7 @@ body {
 .dark .bg-gold               { background-color: var(--dk-gold); }
 .dark .bg-bronze             { background-color: var(--dk-bronze); }
 
-.dark .bg-parchment\/30      { background-color: rgb(28 24 16 / 0.3); }
+.dark .bg-parchment\/30      { background-color: rgb(15 13 9 / 0.3); }
 .dark .bg-stone\/10          { background-color: rgb(var(--dk-stone-rgb) / 0.10); }
 .dark .bg-stone\/20          { background-color: rgb(var(--dk-stone-rgb) / 0.20); }
 .dark .bg-stone\/30          { background-color: rgb(var(--dk-stone-rgb) / 0.30); }
@@ -83,3 +106,157 @@ body {
 .dark .hover\:border-ink:hover    { border-color: var(--dk-ink); }
 .dark .hover\:bg-bronze:hover     { background-color: var(--dk-bronze); }
 .dark .hover\:opacity-80:hover    { opacity: 0.8; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ORNAMENT — Greek key, dividers, gilded titles
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Meander (Greek key) frieze — repeat-x band */
+.meander {
+  height: 9px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 24'%3E%3Cpath d='M0 21H20V3H7V13H13' fill='none' stroke='%23a07a24' stroke-width='2.4'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  opacity: 0.55;
+}
+.dark .meander {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 24'%3E%3Cpath d='M0 21H20V3H7V13H13' fill='none' stroke='%23dcb75f' stroke-width='2.4'/%3E%3C/svg%3E");
+  opacity: 0.45;
+}
+
+/* Thin gold divider with a central diamond */
+.orn-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(160 122 36 / 0.55), transparent);
+}
+.orn-divider::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 1px solid rgb(160 122 36 / 0.75);
+  background-color: transparent;
+}
+.dark .orn-divider { background: linear-gradient(90deg, transparent, rgb(220 183 95 / 0.4), transparent); }
+.dark .orn-divider::after { border-color: rgb(220 183 95 / 0.65); }
+
+/* Gilded page titles — applies to every page h1 automatically */
+main h1 {
+  background-image: linear-gradient(105deg, #5f430e 0%, #b8902f 45%, #8a5f14 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.dark main h1 {
+  background-image: linear-gradient(105deg, #f4df9d 0%, #dcb75f 50%, #977224 100%);
+}
+
+/* Animated gold shimmer (logo, hero text) */
+.gold-shimmer {
+  background-image: linear-gradient(110deg, #8a5f14 0%, #c19a3d 38%, #f0dc9c 50%, #c19a3d 62%, #8a5f14 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 7s linear infinite;
+}
+.dark .gold-shimmer {
+  background-image: linear-gradient(110deg, #9a742c 0%, #dcb75f 38%, #fbeeba 50%, #dcb75f 62%, #9a742c 100%);
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -40% 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DEPTH — every card (`bg-tablet border-stone`) gets marble relief
+   ══════════════════════════════════════════════════════════════════════════ */
+
+div.bg-tablet.border-stone {
+  background-image:
+    linear-gradient(90deg, transparent 8%, rgb(193 154 61 / 0.45) 50%, transparent 92%),
+    linear-gradient(168deg, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0) 46%);
+  background-repeat: no-repeat;
+  background-size: 100% 1px, 100% 100%;
+  box-shadow:
+    0 1px 3px rgb(60 45 12 / 0.07),
+    0 12px 26px -16px rgb(60 45 12 / 0.22);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+@media (hover: hover) {
+  div.bg-tablet.border-stone:hover {
+    transform: translateY(-3px);
+    border-color: rgb(193 154 61 / 0.6);
+    box-shadow:
+      0 2px 6px rgb(60 45 12 / 0.08),
+      0 20px 38px -18px rgb(60 45 12 / 0.32);
+  }
+}
+
+.dark div.bg-tablet.border-stone {
+  border-color: rgb(var(--dk-gold-rgb) / 0.16);
+  background-image:
+    linear-gradient(90deg, transparent 8%, rgb(var(--dk-gold-rgb) / 0.35) 50%, transparent 92%),
+    linear-gradient(168deg, rgb(var(--dk-gold-rgb) / 0.06) 0%, transparent 50%);
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.5),
+    0 16px 32px -20px rgb(0 0 0 / 0.85);
+}
+@media (hover: hover) {
+  .dark div.bg-tablet.border-stone:hover {
+    border-color: rgb(var(--dk-gold-rgb) / 0.45);
+    box-shadow:
+      0 1px 3px rgb(0 0 0 / 0.5),
+      0 16px 32px -20px rgb(0 0 0 / 0.85),
+      0 0 28px -6px rgb(var(--dk-gold-rgb) / 0.22);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOTION — page entrances, nav, scrollbars
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Staggered rise-in of each page section on navigation (keyed in Layout) */
+.page-enter > * > * { animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.page-enter > * > *:nth-child(1) { animation-delay: 0.04s; }
+.page-enter > * > *:nth-child(2) { animation-delay: 0.11s; }
+.page-enter > * > *:nth-child(3) { animation-delay: 0.18s; }
+.page-enter > * > *:nth-child(4) { animation-delay: 0.25s; }
+.page-enter > * > *:nth-child(5) { animation-delay: 0.32s; }
+.page-enter > * > *:nth-child(6) { animation-delay: 0.39s; }
+.page-enter > * > *:nth-child(n+7) { animation-delay: 0.45s; }
+
+/* Sidebar nav glide */
+aside nav a { transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s, color 0.2s; }
+@media (hover: hover) {
+  aside nav a:hover { transform: translateX(3px); }
+}
+
+/* Scrollbars — thin, gilded */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: rgb(160 122 36 / 0.35);
+  border-radius: 5px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgb(160 122 36 / 0.55); }
+.dark ::-webkit-scrollbar-thumb { background-color: rgb(220 183 95 / 0.25); }
+.dark ::-webkit-scrollbar-thumb:hover { background-color: rgb(220 183 95 / 0.45); }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter > * > *,
+  .gold-shimmer { animation: none; }
+  div.bg-tablet.border-stone,
+  aside nav a { transition: none; }
+}

@@ -142,9 +142,9 @@ export default function Dashboard() {
   };
 
   const weeklyGradient = isDark
-    ? "linear-gradient(135deg, #1e1b13 0%, #2a2318 40%, #3a3020 100%)"
-    : "linear-gradient(135deg, #f0ead9 0%, #e8dfc8 40%, #d4c49a 100%)";
-  const weeklyLineColor = isDark ? "#c8a238" : "#8b6914";
+    ? "linear-gradient(135deg, #16120a 0%, #2b2210 45%, #45350f 100%)"
+    : "linear-gradient(135deg, #f5efdd 0%, #ecdfbc 45%, #d5bd85 100%)";
+  const weeklyLineColor = isDark ? "#dcb75f" : "#8a5f14";
 
   async function handleSync() {
     setSyncing(true);
@@ -242,7 +242,7 @@ export default function Dashboard() {
                 <XAxis dataKey="day" tick={AX} axisLine={false} tickLine={false} interval={period === "month" ? 4 : 0} />
                 <YAxis tick={AX} axisLine={false} tickLine={false} width={28} />
                 <Tooltip {...TIP} formatter={(v: number) => [`${v} min`, "Duration"]} />
-                <Bar dataKey="min" fill="#c9a84c" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="min" fill={isDark ? "#dcb75f" : "#c19a3d"} radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -283,9 +283,10 @@ export default function Dashboard() {
             className="absolute inset-0 opacity-10"
             style={{ backgroundImage: `repeating-linear-gradient(0deg, ${weeklyLineColor} 0px, transparent 1px, transparent 24px)` }}
           />
+          <div className="meander absolute top-4 left-6 right-6" />
           <div className="relative">
             <p className="text-[8px] font-cinzel tracking-[0.5em] text-bronze uppercase mb-2">Weekly Insight</p>
-            <h2 className="text-2xl font-cinzel text-ink tracking-[0.05em] leading-tight">
+            <h2 className="text-2xl font-cinzel gold-shimmer tracking-[0.05em] leading-tight">
               Vigor et<br />Disciplina
             </h2>
           </div>

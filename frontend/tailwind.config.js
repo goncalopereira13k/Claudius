@@ -5,13 +5,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        parchment: "#faf8f3",
-        ink:       "#14110c",
-        stone:     "#d4c9a8",
-        ash:       "#7a6f5a",
-        gold:      "#c9a84c",
-        bronze:    "#8b6914",
-        tablet:    "#f0ead9",
+        parchment: "#eae4d3",
+        ink:       "#221c11",
+        stone:     "#cfc2a0",
+        ash:       "#6e6350",
+        gold:      "#c19a3d",
+        bronze:    "#8a5f14",
+        tablet:    "#faf7ee",
       },
       fontFamily: {
         cinzel: ["Cinzel", "'Trajan Pro'", "serif"],

@@ -58,10 +58,10 @@ export const useTheme = () => useContext(ThemeContext);
 // Shared chart color helper — use inside components
 export function useChartColors(isDark: boolean) {
   return {
-    tooltipBg:     isDark ? "#1c1810" : "#f0ead9",
-    tooltipBorder: isDark ? "#3e3628" : "#d4c9a8",
-    axis:          isDark ? "#988970" : "#7a6f5a",
-    grid:          isDark ? "#3e362828" : "#d4c9a828",
-    cursor:        isDark ? "#3e362815" : "#d4c9a815",
+    tooltipBg:     isDark ? "#181510" : "#faf7ee",
+    tooltipBorder: isDark ? "#453a26" : "#cfc2a0",
+    axis:          isDark ? "#a3906c" : "#6e6350",
+    grid:          isDark ? "#453a2640" : "#cfc2a060",
+    cursor:        isDark ? "#453a2620" : "#cfc2a030",
   };
 }
