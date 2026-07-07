@@ -278,10 +278,17 @@ async def _run_evaluation(
     training_context: str | None,
     conversation_id: int,
     message_id: int | None,
+    history: list[dict] | None = None,
+    tool_results: str | None = None,
 ) -> None:
     try:
         from app.services.evaluation_service import evaluate_response
         async with AsyncSessionLocal() as db:
+            # Follow-up messages don't rebuild the coach's training context (it
+            # lives earlier in the conversation), but the judge needs it fresh —
+            # otherwise grounded replies get flagged as hallucinations.
+            if training_context is None:
+                training_context = await build_training_context(db)
             await evaluate_response(
                 user_message=user_message,
                 coach_reply=coach_reply,
@@ -289,14 +296,26 @@ async def _run_evaluation(
                 conversation_id=conversation_id,
                 message_id=message_id,
                 db=db,
+                history=history,
+                tool_results=tool_results,
             )
     except Exception as e:
         log.warning("Evaluation task failed: %s", e)
 
 
-def _make_tool_executor(db: AsyncSession):
-    """Return an async tool executor function bound to the given DB session."""
+def _make_tool_executor(db: AsyncSession, tool_log: list[str] | None = None):
+    """Return an async tool executor function bound to the given DB session.
+
+    When tool_log is provided, every call and its result are appended to it so
+    the LLM judge can verify claims the coach grounded in tool data.
+    """
     async def tool_executor(tool_name: str, inputs: dict) -> str:
+        result = await _run_tool(tool_name, inputs)
+        if tool_log is not None:
+            tool_log.append(f"{tool_name}({json.dumps(inputs, default=str)}) → {result}")
+        return result
+
+    async def _run_tool(tool_name: str, inputs: dict) -> str:
         if tool_name == "add_calendar_entry":
             entry = UserCalendarEntry(
                 title=inputs["title"],
@@ -530,10 +549,11 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     history = [{"role": m.role, "content": m.content} for m in prior_msgs]
     context = await build_training_context(db) if not prior_msgs else None
 
+    tool_log: list[str] = []
     reply = await chat_with_tools(
         req.message,
         tools=TOOLS,
-        tool_executor=_make_tool_executor(db),
+        tool_executor=_make_tool_executor(db, tool_log),
         history=history,
         context=context,
     )
@@ -551,7 +571,10 @@ async def chat_endpoint(req: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     asyncio.create_task(_run_memory_extraction(conv.id, all_msgs))
     asyncio.create_task(_run_suggestion_extraction(reply, conv.id))
-    asyncio.create_task(_run_evaluation(req.message, reply, context, conv.id, asst_msg.id))
+    asyncio.create_task(_run_evaluation(
+        req.message, reply, context, conv.id, asst_msg.id,
+        history=history, tool_results="\n\n".join(tool_log) or None,
+    ))
 
     return ChatResponse(reply=reply, conversation_id=conv.id)
 
@@ -588,10 +611,11 @@ async def chat_stream_endpoint(req: ChatRequest):
                 yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conv.id})}\n\n"
 
                 full_reply = ""
+                tool_log: list[str] = []
                 async for chunk in chat_with_tools_stream(
                     req.message,
                     tools=TOOLS,
-                    tool_executor=_make_tool_executor(db),
+                    tool_executor=_make_tool_executor(db, tool_log),
                     history=history,
                     context=context,
                 ):
@@ -612,7 +636,10 @@ async def chat_stream_endpoint(req: ChatRequest):
                 ]
                 asyncio.create_task(_run_memory_extraction(conv.id, all_msgs))
                 asyncio.create_task(_run_suggestion_extraction(full_reply, conv.id))
-                asyncio.create_task(_run_evaluation(req.message, full_reply, context, conv.id, asst_msg.id))
+                asyncio.create_task(_run_evaluation(
+                    req.message, full_reply, context, conv.id, asst_msg.id,
+                    history=history, tool_results="\n\n".join(tool_log) or None,
+                ))
 
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
